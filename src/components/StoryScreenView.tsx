@@ -32,19 +32,30 @@ export function StoryScreenView({
 }) {
   const [scene, setScene] = useState(initialScene);
   const [loading, setLoading] = useState(false);
+  const [pendingChoiceIndex, setPendingChoiceIndex] = useState<number | null>(null);
 
-  async function choose(index: number) {
+  async function choose(index: number, raw?: number) {
     setLoading(true);
     const res = await fetch(`/api/campaigns/${campaignId}/beats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ choiceIndex: index }),
+      body: JSON.stringify({ choiceIndex: index, ...(raw ? { roll: { raw } } : {}) }),
     });
     setLoading(false);
+    setPendingChoiceIndex(null);
     if (res.ok) {
       const json = await res.json();
       setScene(json.scene);
     }
+  }
+
+  function tapChoice(index: number) {
+    const choice = scene.choices[index];
+    if (choice.skill) {
+      setPendingChoiceIndex(index);
+      return;
+    }
+    choose(index);
   }
 
   return (
@@ -68,12 +79,33 @@ export function StoryScreenView({
           <p className="text-lg text-zinc-400">…</p>
         ) : scene.isEnding ? (
           <p className="text-xl text-amber-300">The End</p>
+        ) : pendingChoiceIndex !== null ? (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-2xl">What did your die show?</p>
+            <div className="grid grid-cols-5 gap-3">
+              {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => choose(pendingChoiceIndex, n)}
+                  className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-50 text-xl font-semibold text-zinc-950 hover:bg-zinc-200"
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPendingChoiceIndex(null)}
+              className="text-sm text-zinc-500 underline hover:text-zinc-300"
+            >
+              never mind
+            </button>
+          </div>
         ) : (
           <div className="flex flex-wrap justify-center gap-4">
             {scene.choices.map((choice, i) => (
               <button
                 key={i}
-                onClick={() => choose(i)}
+                onClick={() => tapChoice(i)}
                 className="rounded-2xl bg-zinc-50 px-8 py-6 text-xl font-medium text-zinc-950 hover:bg-zinc-200 sm:text-2xl"
               >
                 {choice.text}

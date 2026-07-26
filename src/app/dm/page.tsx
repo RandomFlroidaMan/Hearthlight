@@ -2,16 +2,16 @@ import Link from "next/link";
 
 /**
  * DM screen — private: notes, DCs, story steering controls. Never shown on
- * the story screen. Dice (Phase 5) and dual-screen sync (Phase 6) are still
- * to come; choices currently auto-resolve as success.
+ * the story screen. Live dual-screen sync (Phase 6) is still to come; each
+ * screen currently reads its own state per page load.
  */
 export default function DmScreen() {
   return (
     <div className="flex flex-1 flex-col gap-4 bg-zinc-950 p-8 text-zinc-50">
       <h1 className="text-xl font-semibold">DM screen</h1>
       <p className="max-w-md text-sm text-zinc-400">
-        Real dice resolution lands in Phase 5; live dual-screen sync in
-        Phase 6.
+        Live dual-screen sync lands in Phase 6 — for now each screen reads
+        its own state per page load.
       </p>
       <div className="flex flex-wrap gap-3">
         <Link

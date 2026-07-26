@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { CampaignPlayView } from "@/components/CampaignPlayView";
+import { deriveSkills } from "@/lib/deriveSkills";
+import { toStringArray } from "@/lib/json";
 import type { Choice } from "@/server/storyEngine/beatSchema";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,22 @@ export default async function CampaignPage({
     throw new Error(`Campaign ${id} has no scenes.`);
   }
 
+  const skills = deriveSkills({
+    className: campaign.character.className,
+    level: campaign.character.level,
+    strength: campaign.character.strength,
+    dexterity: campaign.character.dexterity,
+    constitution: campaign.character.constitution,
+    intelligence: campaign.character.intelligence,
+    wisdom: campaign.character.wisdom,
+    charisma: campaign.character.charisma,
+    proficiencies: toStringArray(campaign.character.proficiencies),
+  });
+
+  // No settings-management UI exists yet — this just reads the singleton
+  // row the schema already defines, defaulting false if it's never been created.
+  const settings = await db.settings.findUnique({ where: { id: "default" } });
+
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
       <div className="flex items-center justify-between">
@@ -59,6 +77,9 @@ export default async function CampaignPage({
           choices: latestScene.choices as unknown as Choice[],
           isEnding: latestScene.isEnding,
         }}
+        readingAge={campaign.character.readingAge}
+        skills={skills}
+        dmFudgeEnabled={settings?.dmFudgeEnabled ?? false}
       />
     </div>
   );

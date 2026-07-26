@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and fill in:
 - `HEARTHLIGHT_MONTHLY_CAP_USD` — optional spend cap, enforced against the
   `SpendLog` table once the art/story engines are logging spend.
 
-## What's actually working right now (Phases 1–4)
+## What's actually working right now (Phases 1–5)
 
 **Phase 1 — skeleton:**
 - Next.js App Router project, TypeScript strict, Tailwind, `npm run dev`.
@@ -149,6 +149,34 @@ Copy `.env.example` to `.env` and fill in:
   two screens don't push updates to each other live — that's Phase 6.
   `ambientTrack` is stored as a tag only — real audio is Phase 7.
 
+**Phase 5 — dice + rules engine:**
+- `src/server/dice/rollResolution.ts` — the mechanic decided before this
+  build started: no animated 3D die, just a physical d20 typed in, plus the
+  character's derived skill modifier (Might/Magic/Cunning/Heart, from
+  Phase 2) against the choice's DC. Age-scaled complexity (age 3 ignores
+  the modifier entirely — "one die and a target number" — ages 5/7/10 apply
+  it in full), advantage/disadvantage (7/10 only, roll twice and take the
+  better/worse), and natural 20/1 always succeed/fail regardless of total —
+  a documented kid-friendly simplification, not strict 5e RAW. 11 unit
+  tests.
+- Picking a skill-check choice now actually requires a roll (or a DM-fudge
+  override) — the DM screen shows a roll panel with the skill/DC/modifier
+  breakdown, an advantage/disadvantage selector where applicable, and (only
+  if `Settings.dmFudgeEnabled`) a force-success/failure override. The story
+  screen keeps "no mechanics" absolute: tapping a skill-check choice there
+  shows only a bare 1-20 number pad, no DC or modifier shown.
+- **Fully verified with real, live rolls** against a level-4 Wizard
+  (Cunning modifier confirmed correct: DEX +2, plus proficiency bonus +2
+  for Investigation, matching hand-calculated expectations exactly):
+  a normal-mode success, a natural-1 forced failure, an advantage roll
+  (confirmed it took the higher of two dice), and DM-fudge overrides for
+  both outcomes. `Scene.rollResult` confirmed attached to the *prior* scene
+  (the one that presented the choice), not the new one being generated.
+- Found and fixed one real gap via that live run: DM-fudge outcomes weren't
+  recording anything in `rollResult`, unlike real rolls — no audit trail of
+  an override having happened. Fixed to record `{ skill, fudged: true,
+  success }`, re-verified live.
+
 ## What's stubbed for later phases
 
 These directories are empty — they're the shape of what's coming, not
@@ -156,7 +184,6 @@ working code:
 
 | Path | Lands in |
 | --- | --- |
-| `src/server/dice/` | Phase 5 — roll input + modifier math |
 | `src/server/sync/` | Phase 6 — dual-screen WebSocket sync |
 
 Build order and checkpoints are tracked against the project plan; each phase

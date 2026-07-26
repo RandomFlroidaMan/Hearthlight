@@ -11,9 +11,14 @@ import { FALLBACK_BEATS } from "@/server/contentPolicy/fallbackBeats";
 import { beatSchema, type Beat, type Choice } from "./beatSchema";
 import { planNextAct, type Act } from "./actPlanner";
 import { updateDigestIfNeeded, KEEP_RECENT_SCENES } from "./digest";
+import { complexityForAge, resolveRoll, type RollMode } from "@/server/dice/rollResolution";
 import type { Campaign, Character, Scene, WorldSetting } from "@/generated/prisma/client";
 
 const MAX_GENERATION_ATTEMPTS = 3;
+
+/** A skill-check choice was picked without a roll or a DM-fudge override —
+ * a 400, not a generation failure, so the route reports it distinctly. */
+export class RollRequiredError extends Error {}
 
 const READING_AGE_GUIDANCE: Record<number, string> = {
   3: "Write for a 3-year-old: very short sentences (5-8 words), concrete nouns, only words a 3-year-old knows. One clear choice matters more than nuance.",
@@ -45,6 +50,9 @@ interface BeatContext {
   digestSummary: string | null;
   recentScenes: Scene[];
   chosenChoiceText?: string;
+  /** Whether the chosen choice's check succeeded — only meaningful when chosenChoiceText is set. */
+  chosenChoiceSucceeded?: boolean;
+  chosenChoiceOutcomeHint?: string | null;
   direction?: string | null;
   forceEnding: boolean;
   priorViolations?: string[];
@@ -92,7 +100,14 @@ function buildUserPrompt(ctx: BeatContext): string {
   }
 
   if (ctx.chosenChoiceText) {
-    parts.push(`The player just chose: "${ctx.chosenChoiceText}", and it succeeded. Continue from there.`);
+    const outcome = ctx.chosenChoiceSucceeded ? "succeeded" : "failed";
+    const hint = ctx.chosenChoiceOutcomeHint ? ` ${ctx.chosenChoiceOutcomeHint}` : "";
+    parts.push(
+      `The player just chose: "${ctx.chosenChoiceText}", and it ${outcome}.${hint} Continue from there.` +
+        (ctx.chosenChoiceSucceeded
+          ? ""
+          : " Remember: a failure must be a gentle, funny setback — never harm, never the end of the adventure."),
+    );
   }
 
   if (ctx.direction) {
@@ -157,6 +172,8 @@ async function generateValidatedBeat(ctx: BeatContext): Promise<Beat> {
 export async function generateBeat(params: {
   campaignId: string;
   choiceIndex?: number;
+  roll?: { raw: number; raw2?: number; mode?: RollMode };
+  fudge?: "success" | "failure";
   direction?: string | null;
   forceEnding?: boolean;
   regenerate?: boolean;
@@ -185,6 +202,63 @@ export async function generateBeat(params: {
       ? (latestScene.choices as unknown as Choice[])[params.choiceIndex]
       : undefined;
 
+  let chosenChoiceSucceeded = true;
+  let chosenChoiceOutcomeHint: string | null = null;
+
+  if (chosenChoice?.skill && chosenChoice.dc !== null) {
+    if (params.fudge) {
+      chosenChoiceSucceeded = params.fudge === "success";
+
+      if (latestScene) {
+        await db.scene.update({
+          where: { id: latestScene.id },
+          data: {
+            rollResult: { skill: chosenChoice.skill, fudged: true, success: chosenChoiceSucceeded },
+          },
+        });
+      }
+    } else if (params.roll) {
+      const complexity = complexityForAge(campaign.character.readingAge);
+      const modifier = deriveSkills({
+        className: campaign.character.className,
+        level: campaign.character.level,
+        strength: campaign.character.strength,
+        dexterity: campaign.character.dexterity,
+        constitution: campaign.character.constitution,
+        intelligence: campaign.character.intelligence,
+        wisdom: campaign.character.wisdom,
+        charisma: campaign.character.charisma,
+        proficiencies: toStringArray(campaign.character.proficiencies),
+      })[chosenChoice.skill];
+
+      const rollResult = resolveRoll({
+        raw: params.roll.raw,
+        raw2: params.roll.raw2,
+        mode: params.roll.mode,
+        modifier,
+        dc: chosenChoice.dc,
+        useModifier: complexity.useModifier,
+      });
+
+      chosenChoiceSucceeded = rollResult.success;
+
+      if (latestScene) {
+        await db.scene.update({
+          where: { id: latestScene.id },
+          data: { rollResult: { skill: chosenChoice.skill, ...rollResult } },
+        });
+      }
+    } else {
+      throw new RollRequiredError(
+        `Choice "${chosenChoice.text}" needs a roll (skill: ${chosenChoice.skill}, DC: ${chosenChoice.dc}) or a DM-fudge override.`,
+      );
+    }
+
+    chosenChoiceOutcomeHint = chosenChoiceSucceeded
+      ? chosenChoice.successHint
+      : chosenChoice.failureHint;
+  }
+
   const beat = await generateValidatedBeat({
     character: campaign.character,
     worldSetting: campaign.worldSetting,
@@ -192,6 +266,8 @@ export async function generateBeat(params: {
     digestSummary: campaign.digestSummary,
     recentScenes: priorScenes.slice(-KEEP_RECENT_SCENES),
     chosenChoiceText: chosenChoice?.text,
+    chosenChoiceSucceeded,
+    chosenChoiceOutcomeHint,
     direction: params.direction,
     forceEnding: params.forceEnding ?? false,
   });

@@ -1,8 +1,16 @@
 import { z } from "zod";
-import { generateBeat } from "@/server/storyEngine/generateBeat";
+import { generateBeat, RollRequiredError } from "@/server/storyEngine/generateBeat";
+
+const rollSchema = z.object({
+  raw: z.number().int().min(1).max(20),
+  raw2: z.number().int().min(1).max(20).optional(),
+  mode: z.enum(["normal", "advantage", "disadvantage"]).optional(),
+});
 
 const advanceSchema = z.object({
   choiceIndex: z.number().int().min(0).optional(),
+  roll: rollSchema.optional(),
+  fudge: z.enum(["success", "failure"]).optional(),
   direction: z.string().nullable().optional(),
   forceEnding: z.boolean().optional(),
   regenerate: z.boolean().optional(),
@@ -13,10 +21,10 @@ const advanceSchema = z.object({
  * forcing an ending, and regenerating the latest beat are all "generate a
  * beat under different constraints," not different operations.
  *
- * Note: choiceIndex resolution is currently a stub — every choice is
- * treated as succeeding, regardless of its skill/DC. Real dice resolution
- * is Phase 5; this lets the story engine be built and verified now without
- * scope-creeping the rules engine in early.
+ * A skill-check choice (choiceIndex pointing at a choice with skill+dc)
+ * requires either `roll` (the physical d20 result(s)) or `fudge` (a DM
+ * override) — generateBeat throws RollRequiredError otherwise, reported
+ * here as a 400, not a generation failure.
  */
 export async function POST(
   request: Request,
@@ -33,6 +41,9 @@ export async function POST(
     const scene = await generateBeat({ campaignId: id, ...parsed.data });
     return Response.json({ scene });
   } catch (err) {
+    if (err instanceof RollRequiredError) {
+      return Response.json({ error: "roll_required", message: err.message }, { status: 400 });
+    }
     return Response.json(
       { error: "beat_generation_failed", message: (err as Error).message },
       { status: 502 },
