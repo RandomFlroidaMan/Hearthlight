@@ -6,8 +6,13 @@
  * against /v1/models and real /v1/responses calls (2026-07-26) — both plain
  * text and image input (sheet-scan parsing) verified with real extractions.
  *
- * `image` and `tts` are still placeholders — pinned for real in the phase
- * that actually calls them (art pipeline = Phase 3, TTS = Phase 7).
+ * `image` is pinned to gpt-image-2's current dated snapshot, confirmed in
+ * /v1/models and against the installed SDK's own type definitions (docs
+ * site blocks scraping). Used for both from-scratch generation
+ * (`images.generate`) and reference-guided generation (`images.edit`, up to
+ * 16 input images) for character/setting consistency.
+ *
+ * `tts` is still a placeholder — pinned for real in Phase 7.
  */
 
 export const modelConfig = {
@@ -17,7 +22,7 @@ export const modelConfig = {
     model: process.env.HEARTHLIGHT_TEXT_MODEL || "gpt-5.5-2026-04-23",
   },
   image: {
-    model: process.env.HEARTHLIGHT_IMAGE_MODEL || "TBD-verify-in-phase-3",
+    model: process.env.HEARTHLIGHT_IMAGE_MODEL || "gpt-image-2-2026-04-21",
   },
   tts: {
     model: process.env.HEARTHLIGHT_TTS_MODEL || "TBD-verify-in-phase-7",

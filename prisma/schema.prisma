@@ -45,11 +45,32 @@ model Character {
   @@map("characters")
 }
 
+// A reusable world/place — a preset biome (forest/mountain/coast/night via
+// paletteKey) or a fully custom setting the DM built from a prompt and up to
+// 5 reference images (e.g. a real turtle photo for a bog town on its back).
+// Every campaign's setting is a WorldSetting row, whether picked from the
+// library or created fresh from a one-off prompt at campaign-start time.
+model WorldSetting {
+  id              String   @id @default(cuid())
+  name            String
+  description     String // the freeform prompt / world description
+  paletteKey      String? // "forest" | "mountain" | "coast" | "night" | null for custom
+  referenceImages Json     @default("[]") // string[] of paths under /data/images, max 5 enforced in app layer
+  lastSceneImage  String? // filename of the most recently generated scene image for this setting — the fallback target if a new generation fails twice, so a failure never shows a placeholder box
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  campaigns Campaign[]
+
+  @@map("world_settings")
+}
+
 model Campaign {
   id                String   @id @default(cuid())
   characterId       String
   character         Character @relation(fields: [characterId], references: [id])
-  setting           String // forest | mountain | coast | night | ...
+  worldSettingId    String
+  worldSetting      WorldSetting @relation(fields: [worldSettingId], references: [id])
   act               String    @default("setup") // setup | journey | complication | climax | resolution
   tone              String?
   digestSummary     String? // running summary of older scenes for long-context coherence
@@ -96,14 +117,16 @@ model Item {
   @@map("items")
 }
 
+// campaignId is nullable: portrait generation and other setup-time spend
+// happen before any campaign exists, not just during a running session.
 model SpendLog {
-  id         String   @id @default(cuid())
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  id         String    @id @default(cuid())
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
   kind       String // "text_tokens" | "image" | "tts"
   amount     Int // tokens or image count
   costUsd    Float
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@map("spend_logs")
 }
