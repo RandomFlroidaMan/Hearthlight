@@ -1,0 +1,122 @@
+// Hearthlight data model.
+// See /root/.claude/plans/replicated-growing-eclipse.md for the architecture
+// this schema implements. Fields will grow as later phases land; this is the
+// Phase 1 shape.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// A saved player character. Ability scores are the real 5e values; the four
+// kid-facing skills (Might/Magic/Cunning/Heart) are derived from them at
+// read time rather than duplicated here.
+model Character {
+  id            String   @id @default(cuid())
+  name          String
+  displayName   String? // kid-facing name, e.g. "Sneaky Scout" for Rogue
+  race          String
+  className     String
+  level         Int      @default(1)
+  strength      Int
+  dexterity     Int
+  constitution  Int
+  intelligence  Int
+  wisdom        Int
+  charisma      Int
+  proficiencies Json // string[] of proficient skills/saves
+  equipment     Json // string[]
+  spells        Json // string[]
+  background    String?
+  personality   String?
+  appearance    String?
+  readingAge    Int      @default(5) // 3 | 5 | 7 | 10
+  portraitPath  String? // path under /data/images for the reference portrait
+  sourceSheet   String? // original uploaded filename, if imported
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  campaigns Campaign[]
+
+  @@map("characters")
+}
+
+model Campaign {
+  id                String   @id @default(cuid())
+  characterId       String
+  character         Character @relation(fields: [characterId], references: [id])
+  setting           String // forest | mountain | coast | night | ...
+  act               String    @default("setup") // setup | journey | complication | climax | resolution
+  tone              String?
+  digestSummary     String? // running summary of older scenes for long-context coherence
+  unresolvedThreads Json      @default("[]")
+  status            String    @default("active") // active | ended | archived
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  scenes    Scene[]
+  items     Item[]
+  spendLogs SpendLog[]
+
+  @@map("campaigns")
+}
+
+model Scene {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  order       Int
+  prose       String
+  imagePath   String?
+  dmNotes     String?
+  choices     Json // Choice[] (text, optional skill+dc, outcome text)
+  rollResult  Json? // { skill, dc, raw, modifier, total, success }
+  ambientTrack String?
+  isEnding    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([campaignId, order])
+  @@map("scenes")
+}
+
+model Item {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id])
+  name         String
+  description  String?
+  imagePath    String?
+  earnedAtScene Int?
+  createdAt    DateTime @default(now())
+
+  @@map("items")
+}
+
+model SpendLog {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  kind       String // "text_tokens" | "image" | "tts"
+  amount     Int // tokens or image count
+  costUsd    Float
+  createdAt  DateTime @default(now())
+
+  @@map("spend_logs")
+}
+
+// Singleton row (id = "default") holding app-wide settings.
+model Settings {
+  id                String  @id @default("default")
+  monthlyCapUsd     Float?
+  defaultReadingAge Int     @default(5)
+  narrationMuted    Boolean @default(false)
+  ambienceMuted     Boolean @default(false)
+  effectsMuted      Boolean @default(false)
+  dmFudgeEnabled    Boolean @default(false)
+
+  @@map("settings")
+}
