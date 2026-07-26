@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/server/db";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { findClass } from "@/lib/dnd";
+import { toStringArray } from "@/lib/json";
 
 // Reads live from the DB on every request. Without this, Next statically
 // prerenders the list at build time and a production run (`next build &&
@@ -41,11 +42,7 @@ export default async function CharacterLibraryPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {characters.map((character) => {
-            const proficiencies = Array.isArray(character.proficiencies)
-              ? (character.proficiencies as unknown[]).filter(
-                  (p): p is string => typeof p === "string",
-                )
-              : [];
+            const proficiencies = toStringArray(character.proficiencies);
             const skills = deriveSkills({
               className: character.className,
               level: character.level,

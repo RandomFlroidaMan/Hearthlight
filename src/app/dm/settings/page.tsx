@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { db } from "@/server/db";
 import { publicImageUrl } from "@/server/art/imageStore";
+import { toStringArray } from "@/lib/json";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +31,7 @@ export default async function WorldSettingLibraryPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {worldSettings.map((setting) => {
-            const referenceImages = Array.isArray(setting.referenceImages)
-              ? (setting.referenceImages as unknown[]).filter(
-                  (p): p is string => typeof p === "string",
-                )
-              : [];
+            const referenceImages = toStringArray(setting.referenceImages);
 
             return (
               <li

@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and fill in:
 - `HEARTHLIGHT_MONTHLY_CAP_USD` — optional spend cap, enforced against the
   `SpendLog` table once the art/story engines are logging spend.
 
-## What's actually working right now (Phases 1–3)
+## What's actually working right now (Phases 1–4)
 
 **Phase 1 — skeleton:**
 - Next.js App Router project, TypeScript strict, Tailwind, `npm run dev`.
@@ -109,6 +109,46 @@ Copy `.env.example` to `.env` and fill in:
   actually calling the API.
 - `image.model` pinned to `gpt-image-2-2026-04-21`, confirmed live.
 
+**Phase 4 — story engine + content policy:**
+- Content policy (`src/server/contentPolicy/`) — the brief's hard safety
+  rules (§5) as one readable, tested module: a banned-word list (word-
+  boundary matched, not substring — verified against false positives like
+  "scarecrow"), an approved-outcome vocabulary fed into the prompt, a
+  best-effort human-vs-monster conflict heuristic, and a hand-authored
+  fallback beat per act. 16 unit tests, including every fallback beat
+  validating against its own validator.
+- Story engine (`src/server/storyEngine/`) — structured-output beat
+  generation (`generateBeat`) reusing the same `zodTextFormat` +
+  Responses API pattern proven in Phase 2's sheet parsing: prose, 2-3
+  choices with optional skill/DC, private DM notes, an image prompt, an
+  ambient-audio tag, an optional item reward, an ending flag. A reading-
+  age-aware act planner (setup → journey → complication → climax →
+  resolution) and a digest summarizer that folds older scenes into
+  `Campaign.digestSummary` so long campaigns don't blow the context window.
+  Regenerates up to 3 times against content-policy violations before
+  falling back to an authored-safe beat.
+- Campaigns (`/dm/campaigns/new`, `/dm/campaigns/[id]`,
+  `/story/campaigns/[id]`) — picking a character + world setting starts a
+  real campaign; the DM screen shows prose/choices/notes with overrides
+  (pick a choice, regenerate, inject a direction, force an ending, edit
+  prose inline); the story screen shows art/prose/choices only, with DM
+  notes confirmed never leaking there.
+- **Fully verified with a real, live, multi-scene campaign** — Quinn in
+  The Wandering Bog, played through setup → journey → complication →
+  resolution across 4 real beats. Every generated beat passed content
+  policy on the first attempt (no regeneration or fallback needed). Every
+  DM override was exercised for real: prose edit, regenerate-in-place
+  (confirmed it replaces rather than duplicates), direction injection
+  (confirmed the model actually followed it), and force-ending (confirmed
+  campaign status flips to `"ended"`). Digest summarization fired
+  correctly once past the 3-scene threshold. Checked via a real headless
+  browser, not just `curl`: both screens render with zero console errors,
+  and the DM-notes privacy boundary holds on the story screen.
+- **Explicitly stubbed, not scope-crept in from later phases**: picking a
+  choice always auto-resolves as success — real dice math is Phase 5. The
+  two screens don't push updates to each other live — that's Phase 6.
+  `ambientTrack` is stored as a tag only — real audio is Phase 7.
+
 ## What's stubbed for later phases
 
 These directories are empty — they're the shape of what's coming, not
@@ -116,8 +156,6 @@ working code:
 
 | Path | Lands in |
 | --- | --- |
-| `src/server/storyEngine/` | Phase 4 — structured-output story engine |
-| `src/server/contentPolicy/` | Phase 4 — safety validator |
 | `src/server/dice/` | Phase 5 — roll input + modifier math |
 | `src/server/sync/` | Phase 6 — dual-screen WebSocket sync |
 

@@ -4,6 +4,7 @@ import { modelConfig } from "@/server/config/models";
 import { buildImagePrompt, QUALITY, SIZES } from "./artDirection";
 import { getCachedImage, hashCacheKey, mimeTypeForFilename, readImageBytes, saveImage } from "./imageStore";
 import { logImageSpend } from "./spendLog";
+import { toStringArray } from "@/lib/json";
 import type { Character, WorldSetting } from "@/generated/prisma/client";
 
 async function toUploadableFile(filename: string): Promise<File> {
@@ -67,7 +68,7 @@ export async function generateSceneImage(params: {
   sceneDescription: string;
   campaignId?: string | null;
 }): Promise<{ filename: string; fromFallback: boolean }> {
-  const referenceImages = (params.worldSetting.referenceImages as string[]) ?? [];
+  const referenceImages = toStringArray(params.worldSetting.referenceImages);
   const referenceFilenames = [
     ...(params.character.portraitPath ? [params.character.portraitPath] : []),
     ...referenceImages,

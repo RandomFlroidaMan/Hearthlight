@@ -91,8 +91,10 @@ model Scene {
   campaignId  String
   campaign    Campaign @relation(fields: [campaignId], references: [id])
   order       Int
+  act         String @default("setup") // snapshot of Campaign.act when this scene was generated, so the act planner can count scenes-per-act
   prose       String
   imagePath   String?
+  imagePrompt String? // the exact prompt used to generate this scene's art
   dmNotes     String?
   choices     Json // Choice[] (text, optional skill+dc, outcome text)
   rollResult  Json? // { skill, dc, raw, modifier, total, success }
