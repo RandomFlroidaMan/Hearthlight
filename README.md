@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and fill in:
 - `HEARTHLIGHT_MONTHLY_CAP_USD` — optional spend cap, enforced against the
   `SpendLog` table once the art/story engines are logging spend.
 
-## What's actually working right now (Phases 1–2)
+## What's actually working right now (Phases 1–3)
 
 **Phase 1 — skeleton:**
 - Next.js App Router project, TypeScript strict, Tailwind, `npm run dev`.
@@ -79,14 +79,43 @@ Copy `.env.example` to `.env` and fill in:
   route with real files and a real API key — not mocked, not just
   unit-tested in isolation.
 
+**Phase 3 — art pipeline + character/setting consistency:**
+- Style bible (`src/server/art/artDirection.ts`) — one file, per the brief:
+  base painterly-watercolor prompt, negative directions folded into the
+  text (gpt-image models have no separate negative-prompt param), 16:9
+  scene size / square portrait size, and 4 preset biome palettes.
+- Character reference portraits (`generateCharacterPortrait`, via
+  `images.generate`) and reference-guided scene art
+  (`generateSceneImage`, via `images.edit` with the portrait + setting
+  reference images as inputs) — hash-based disk cache, served through
+  `/api/images/[filename]` since generated art lives outside `public/`.
+  Retries once on failure, then falls back to the setting's last
+  successfully generated image rather than ever showing a placeholder box.
+- **World settings** (`/dm/settings`, `/dm/settings/new`) — a reusable
+  library of places, either a built-in palette or a fully custom setting
+  built from a prompt plus up to 5 reference images. One form serves both a
+  saved library entry and a quick prompt-only story start.
+- **`/dm/art-test`** — the brief's own mandated checkpoint: generate several
+  scenes from the same character + setting references and eyeball
+  consistency before building anything else on top. **Actually run**, not
+  just built: a real "Wandering Bog" setting (bog town on a giant,
+  slow-grazing turtle, built from a real reference photo) plus an existing
+  character produced a reference portrait and 5 scene images, all
+  consistent in character appearance and setting look, none needed the
+  fallback path. Images were reviewed directly, not just code-reviewed.
+- Found and fixed one real bug via that live run: `gpt-image-2` rejects the
+  `input_fidelity` parameter (that's `gpt-image-1`/`1.5` only) — the SDK's
+  own docstring reads ambiguously on this point, so this was only caught by
+  actually calling the API.
+- `image.model` pinned to `gpt-image-2-2026-04-21`, confirmed live.
+
 ## What's stubbed for later phases
 
-These directories exist (via `.gitkeep`) but are empty — they're the shape
-of what's coming, not working code:
+These directories are empty — they're the shape of what's coming, not
+working code:
 
 | Path | Lands in |
 | --- | --- |
-| `src/server/art/` | Phase 3 — art pipeline, character consistency |
 | `src/server/storyEngine/` | Phase 4 — structured-output story engine |
 | `src/server/contentPolicy/` | Phase 4 — safety validator |
 | `src/server/dice/` | Phase 5 — roll input + modifier math |
