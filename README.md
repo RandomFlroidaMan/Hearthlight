@@ -25,10 +25,8 @@ Copy `.env.example` to `.env` and fill in:
 
 - `DATABASE_URL` — already set to `file:./data/dev.db`, no change needed.
 - `OPENAI_API_KEY` — required for AI-assisted sheet import (text-layer PDFs
-  and photo/scan uploads) and everything from the art pipeline onward. The
-  key that's been added authenticates fine, but this account currently has
-  **no billing set up**, so every live call fails with `insufficient_quota`
-  until that's added at platform.openai.com → Settings → Billing.
+  and photo/scan uploads) and everything from the art pipeline onward.
+  Working and billed, confirmed with live calls.
 - `HEARTHLIGHT_TEXT_MODEL` / `HEARTHLIGHT_IMAGE_MODEL` / `HEARTHLIGHT_TTS_MODEL`
   — optional overrides for the model IDs pinned in
   `src/server/config/models.ts`. Leave blank to use the defaults.
@@ -60,26 +58,26 @@ Copy `.env.example` to `.env` and fill in:
   proficiencies. Unit tested (4 tests), and the mapping logic is documented
   inline since the brief doesn't specify an exact formula.
 - Sheet import (`/dm/characters/import`, `POST /api/sheets/parse`) handles
-  all three cases from the brief:
-  - **Form-field PDFs** — deterministic AcroForm extraction. **Verified**
+  all three cases from the brief, **all fully verified end-to-end with live
+  OpenAI calls** (billing was added after the initial build):
+  - **Form-field PDFs** — deterministic AcroForm extraction, verified
     against a synthetic test PDF (no real D&D Beyond export was available
     to test against, so the exact field-name mapping is a best-effort guess
     at the common Wizards-of-the-Coast fillable layout — that's exactly why
     every import goes through an editable confirmation screen rather than
     saving silently).
-  - **Text-layer PDFs** — text extraction is deterministic and verified;
-    the LLM mapping step is fully wired (confirmed to reach OpenAI
-    correctly) but blocked on billing, so its actual accuracy is
-    unverified.
-  - **Scans/photos** — classification and page rasterization
-    (`@napi-rs/canvas` via `pdf-parse`) are verified; the vision-model call
-    is wired and reaches OpenAI correctly, same billing block as above.
-- All four sheet-classification paths were exercised end-to-end through the
-  real HTTP route with real files — not just unit-tested in isolation.
-
-**Blocked on billing, not on code**: `insufficient_quota` from OpenAI. Every
-call that depends on it is wired, type-checked, and confirmed to reach the
-API correctly — add billing and re-run to get real results.
+  - **Text-layer PDFs** — text extraction plus the LLM structured-output
+    mapping, verified against a real generated PDF: every field (name,
+    race, class/level, all six ability scores, proficiencies, equipment,
+    spells, background, personality) came back correct.
+  - **Scans/photos** — page rasterization (`@napi-rs/canvas` via
+    `pdf-parse`) plus the vision-model call, verified two ways: a rendered
+    "photo" of the same test sheet extracted every field correctly, and a
+    genuinely blank scan fell back to sensible defaults (`"Unknown"`, 10s,
+    empty lists) instead of crashing or fabricating data.
+- All four sheet-classification paths were exercised through the real HTTP
+  route with real files and a real API key — not mocked, not just
+  unit-tested in isolation.
 
 ## What's stubbed for later phases
 

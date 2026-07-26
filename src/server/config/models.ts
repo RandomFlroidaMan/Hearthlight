@@ -3,12 +3,8 @@
  * Nothing outside this file should reference a raw model string.
  *
  * `text` is pinned to the current frontier GPT-5.x snapshot, confirmed live
- * against /v1/models and a real (billing-blocked but request-accepted)
- * /v1/responses call on 2026-07-26 — see Phase 2 notes. It's also used for
- * vision input (sheet-scan parsing): GPT-5.x is natively multimodal, but
- * that specific path is unverified until the account has billing, since
- * every live call so far has failed at the billing check before reaching
- * model execution.
+ * against /v1/models and real /v1/responses calls (2026-07-26) — both plain
+ * text and image input (sheet-scan parsing) verified with real extractions.
  *
  * `image` and `tts` are still placeholders — pinned for real in the phase
  * that actually calls them (art pipeline = Phase 3, TTS = Phase 7).
