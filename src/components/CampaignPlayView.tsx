@@ -18,9 +18,9 @@ function publicImageUrl(filename: string): string {
 
 /**
  * Display-only preview of what src/server/dice/rollResolution.ts will
- * compute server-side, so the DM sees the math immediately without waiting
- * on the round trip. The server result is always the authoritative one —
- * this never decides the actual outcome.
+ * compute server-side, so the group sees the math immediately without
+ * waiting on the round trip. The server result is always the authoritative
+ * one — this never decides the actual outcome.
  */
 type RollMode = "normal" | "advantage" | "disadvantage";
 
@@ -64,20 +64,38 @@ type SceneData = {
 
 type Skills = { might: number; magic: number; cunning: number; heart: number };
 
+export type PartyMember = {
+  id: string;
+  label: string;
+  skills: Skills;
+  readingAge: number;
+};
+
+type DraftRoll = { raw: string; raw2: string; mode: RollMode };
+
+function emptyDraft(): DraftRoll {
+  return { raw: "", raw2: "", mode: "normal" };
+}
+
 export function CampaignPlayView({
   campaignId,
   roomCode,
   initialScene,
-  readingAge,
-  skills,
+  party,
   dmFudgeEnabled,
+  /** Full operator mode (the original DM screen): private DM notes, room
+   * code, regenerate/force-ending/direction tools. Off for the single-
+   * screen family mode, where nobody is "running" the game for anyone
+   * else. */
+  showDmTools = true,
 }: {
   campaignId: string;
   roomCode: string;
   initialScene: SceneData;
-  readingAge: number;
-  skills: Skills;
+  /** The whole party — one row of roll inputs per member when a check comes up. */
+  party: PartyMember[];
   dmFudgeEnabled: boolean;
+  showDmTools?: boolean;
 }) {
   const [scene, setScene] = useState(initialScene);
   const [busy, setBusy] = useState(false);
@@ -86,12 +104,8 @@ export function CampaignPlayView({
   const [editingProse, setEditingProse] = useState(false);
   const [proseDraft, setProseDraft] = useState(initialScene.prose);
   const [pendingChoiceIndex, setPendingChoiceIndex] = useState<number | null>(null);
-  const [rollMode, setRollMode] = useState<RollMode>("normal");
-  const [raw, setRaw] = useState("");
-  const [raw2, setRaw2] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, DraftRoll>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
-
-  const complexity = previewComplexity(readingAge);
 
   /** Applies a new scene whether it came from this screen's own POST/PATCH
    * response or a WebSocket broadcast triggered by the other screen. Resets
@@ -102,9 +116,7 @@ export function CampaignPlayView({
     setScene((prev) => {
       if (newScene.id !== prev.id) {
         setPendingChoiceIndex(null);
-        setRaw("");
-        setRaw2("");
-        setRollMode("normal");
+        setDrafts({});
         setLastResult(null);
         setEditingProse(false);
       }
@@ -162,35 +174,55 @@ export function CampaignPlayView({
       return;
     }
     setPendingChoiceIndex(index);
+    setDrafts(Object.fromEntries(party.map((p) => [p.id, emptyDraft()])));
     setLastResult(null);
+  }
+
+  function updateDraft(characterId: string, patch: Partial<DraftRoll>) {
+    setDrafts((prev) => ({ ...prev, [characterId]: { ...(prev[characterId] ?? emptyDraft()), ...patch } }));
   }
 
   function submitRoll() {
     if (pendingChoiceIndex === null) return;
     const choice = scene.choices[pendingChoiceIndex];
-    const rawNum = Number(raw);
-    if (!Number.isInteger(rawNum) || rawNum < 1 || rawNum > 20) {
-      setError("Enter what the d20 showed — a number 1-20.");
-      return;
+    if (!choice.skill || choice.dc === null) return;
+
+    const rolls: Array<{ characterId: string; raw: number; raw2?: number; mode?: RollMode }> = [];
+    const previews: string[] = [];
+    let anySuccess = false;
+
+    for (const member of party) {
+      const draft = drafts[member.id] ?? emptyDraft();
+      const rawNum = Number(draft.raw);
+      if (!Number.isInteger(rawNum) || rawNum < 1 || rawNum > 20) {
+        setError(`Enter what ${member.label}'s d20 showed — a number 1-20.`);
+        return;
+      }
+      const raw2Num = draft.raw2 ? Number(draft.raw2) : undefined;
+      const complexity = previewComplexity(member.readingAge);
+
+      const preview = previewRoll({
+        raw: rawNum,
+        raw2: raw2Num,
+        mode: draft.mode,
+        modifier: choice.skill ? member.skills[choice.skill] : 0,
+        useModifier: complexity.useModifier,
+        dc: choice.dc ?? 0,
+      });
+      if (preview.success) anySuccess = true;
+      previews.push(
+        `${member.label}: ${preview.effectiveRaw}${preview.modifier ? ` + ${preview.modifier}` : ""} = ${preview.total}${preview.isNatural20 ? " (Natural 20!)" : ""}${preview.isNatural1 ? " (Natural 1)" : ""}`,
+      );
+
+      rolls.push({ characterId: member.id, raw: rawNum, raw2: raw2Num, mode: draft.mode });
     }
-    const raw2Num = raw2 ? Number(raw2) : undefined;
 
-    const preview = previewRoll({
-      raw: rawNum,
-      raw2: raw2Num,
-      mode: rollMode,
-      modifier: choice.skill ? skills[choice.skill] : 0,
-      useModifier: complexity.useModifier,
-      dc: choice.dc ?? 0,
-    });
-    setLastResult(
-      `Rolled ${preview.effectiveRaw}${preview.modifier ? ` + ${preview.modifier}` : ""} = ${preview.total} vs DC ${choice.dc} — ${preview.success ? "Success!" : "Setback."}${preview.isNatural20 ? " Natural 20!" : ""}${preview.isNatural1 ? " Natural 1." : ""}`,
-    );
+    // A quick local preview only — same "any party member succeeds" rule
+    // as the server's resolvePartyRoll, but the server's result (reflected
+    // once the new scene arrives) is always the authoritative one.
+    setLastResult(`${previews.join(" · ")} — vs DC ${choice.dc} — ${anySuccess ? "Success!" : "Setback."}`);
 
-    postBeat({
-      choiceIndex: pendingChoiceIndex,
-      roll: { raw: rawNum, raw2: raw2Num, mode: rollMode },
-    });
+    postBeat({ choiceIndex: pendingChoiceIndex, roll: rolls });
   }
 
   function fudge(outcome: "success" | "failure") {
@@ -206,9 +238,11 @@ export function CampaignPlayView({
         <span className="rounded-full border border-zinc-700 px-2 py-1">act: {scene.act}</span>
         <span>scene {scene.order}</span>
         {scene.isEnding && <span className="text-amber-400">ending</span>}
-        <span className="ml-auto rounded-full border border-amber-700 bg-amber-950/40 px-3 py-1 font-mono text-amber-300">
-          Room code: {roomCode}
-        </span>
+        {showDmTools && (
+          <span className="ml-auto rounded-full border border-amber-700 bg-amber-950/40 px-3 py-1 font-mono text-amber-300">
+            Room code: {roomCode}
+          </span>
+        )}
       </div>
 
       {scene.imagePath && (
@@ -229,7 +263,7 @@ export function CampaignPlayView({
         </div>
       )}
 
-      {editingProse ? (
+      {showDmTools && editingProse ? (
         <div className="flex flex-col gap-2">
           <textarea
             value={proseDraft}
@@ -260,16 +294,18 @@ export function CampaignPlayView({
       ) : (
         <div className="flex items-start justify-between gap-3">
           <p className="text-lg">{scene.prose}</p>
-          <button
-            onClick={() => setEditingProse(true)}
-            className="shrink-0 text-xs text-zinc-500 underline hover:text-zinc-300"
-          >
-            edit
-          </button>
+          {showDmTools && (
+            <button
+              onClick={() => setEditingProse(true)}
+              className="shrink-0 text-xs text-zinc-500 underline hover:text-zinc-300"
+            >
+              edit
+            </button>
+          )}
         </div>
       )}
 
-      {scene.dmNotes && (
+      {showDmTools && scene.dmNotes && (
         <div className="rounded-md border border-purple-900 bg-purple-950/30 p-3 text-sm text-purple-200">
           <p className="mb-1 text-xs uppercase tracking-wide text-purple-400">DM notes (private)</p>
           {scene.dmNotes}
@@ -290,8 +326,13 @@ export function CampaignPlayView({
               <span>{choice.text}</span>
               {choice.skill && choice.dc && (
                 <span className="ml-2 text-xs text-zinc-500">
-                  ({choice.skill} DC {choice.dc}, your modifier {skills[choice.skill] >= 0 ? "+" : ""}
-                  {skills[choice.skill]})
+                  ({choice.skill} DC {choice.dc}
+                  {party.length > 0 &&
+                    " — " +
+                      party
+                        .map((p) => `${p.label} ${p.skills[choice.skill!] >= 0 ? "+" : ""}${p.skills[choice.skill!]}`)
+                        .join(", ")}
+                  )
                 </span>
               )}
             </button>
@@ -302,45 +343,54 @@ export function CampaignPlayView({
       {pendingChoice && pendingChoice.skill && (
         <div className="flex flex-col gap-3 rounded-md border border-amber-700 bg-amber-950/30 p-4">
           <p className="text-sm">
-            {pendingChoice.text} — {pendingChoice.skill} check, DC {pendingChoice.dc}. What did the d20 show?
+            {pendingChoice.text} — {pendingChoice.skill} check, DC {pendingChoice.dc}. Everyone rolls!
           </p>
 
-          {complexity.allowAdvantage && (
-            <select
-              value={rollMode}
-              onChange={(e) => setRollMode(e.target.value as RollMode)}
-              aria-label="Roll mode"
-              className="w-fit rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
-            >
-              <option value="normal">Normal</option>
-              <option value="advantage">Advantage (roll twice, take higher)</option>
-              <option value="disadvantage">Disadvantage (roll twice, take lower)</option>
-            </select>
-          )}
+          {party.map((member) => {
+            const complexity = previewComplexity(member.readingAge);
+            const draft = drafts[member.id] ?? emptyDraft();
+            return (
+              <div key={member.id} className="flex flex-wrap items-center gap-2">
+                <span className="w-24 shrink-0 text-sm text-zinc-300">{member.label}</span>
+                {complexity.allowAdvantage && (
+                  <select
+                    value={draft.mode}
+                    onChange={(e) => updateDraft(member.id, { mode: e.target.value as RollMode })}
+                    aria-label={`${member.label} roll mode`}
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="advantage">Advantage</option>
+                    <option value="disadvantage">Disadvantage</option>
+                  </select>
+                )}
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={draft.raw}
+                  onChange={(e) => updateDraft(member.id, { raw: e.target.value })}
+                  placeholder="d20"
+                  aria-label={`${member.label} first d20 roll`}
+                  className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
+                />
+                {draft.mode !== "normal" && (
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={draft.raw2}
+                    onChange={(e) => updateDraft(member.id, { raw2: e.target.value })}
+                    placeholder="d20 #2"
+                    aria-label={`${member.label} second d20 roll`}
+                    className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
+                  />
+                )}
+              </div>
+            );
+          })}
 
           <div className="flex gap-2">
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              placeholder="d20"
-              aria-label="First d20 roll"
-              className="w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
-            />
-            {rollMode !== "normal" && (
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={raw2}
-                onChange={(e) => setRaw2(e.target.value)}
-                placeholder="d20 #2"
-                aria-label="Second d20 roll"
-                className="w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
-              />
-            )}
             <button
               onClick={submitRoll}
               disabled={busy}
@@ -350,7 +400,7 @@ export function CampaignPlayView({
             </button>
           </div>
 
-          {dmFudgeEnabled && (
+          {dmFudgeEnabled && showDmTools && (
             <div className="flex gap-2 border-t border-amber-800 pt-2">
               <span className="text-xs text-amber-400">DM fudge:</span>
               <button
@@ -382,14 +432,16 @@ export function CampaignPlayView({
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-zinc-800 pt-4">
-        <button
-          disabled={busy}
-          onClick={() => postBeat({ regenerate: true })}
-          className="rounded-full border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900 disabled:opacity-50"
-        >
-          Regenerate this beat
-        </button>
-        {!scene.isEnding && (
+        {showDmTools && (
+          <button
+            disabled={busy}
+            onClick={() => postBeat({ regenerate: true })}
+            className="rounded-full border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900 disabled:opacity-50"
+          >
+            Regenerate this beat
+          </button>
+        )}
+        {showDmTools && !scene.isEnding && (
           <button
             disabled={busy}
             onClick={() => postBeat({ forceEnding: true })}
@@ -405,25 +457,27 @@ export function CampaignPlayView({
         >
           Download keepsake
         </a>
-        <div className="flex flex-1 gap-2">
-          <input
-            value={direction}
-            onChange={(e) => setDirection(e.target.value)}
-            placeholder="Inject a direction (e.g. bring back the fox)"
-            aria-label="Inject a story direction"
-            className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-          />
-          <button
-            disabled={busy || !direction}
-            onClick={() => {
-              postBeat({ direction });
-              setDirection("");
-            }}
-            className="rounded-full bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
+        {showDmTools && (
+          <div className="flex flex-1 gap-2">
+            <input
+              value={direction}
+              onChange={(e) => setDirection(e.target.value)}
+              placeholder="Inject a direction (e.g. bring back the fox)"
+              aria-label="Inject a story direction"
+              className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+            />
+            <button
+              disabled={busy || !direction}
+              onClick={() => {
+                postBeat({ direction });
+                setDirection("");
+              }}
+              className="rounded-full bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

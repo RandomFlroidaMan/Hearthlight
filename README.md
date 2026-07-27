@@ -1,9 +1,16 @@
 # Hearthlight
 
-A family D&D-style storytelling app: you're the DM, your kid taps, chooses,
-rolls a physical d20, and looks at the pictures. Two screens stay in sync —
-a private DM screen (notes, DCs, controls) and a public story screen
-(full-bleed art and choices, legible across a room).
+A family D&D-style storytelling app. Two ways to play:
+
+- **Play together** (`/play`) — one shared screen for the whole family. No
+  DM, no second device: pick a prebuilt story or a saved world, build a
+  party from your saved characters, and everyone rolls their own physical
+  d20 when a check comes up (the check succeeds if anyone in the party
+  pulls it off).
+- **DM + Story screens** (`/dm` and `/story`) — the original two-device
+  mode: a parent runs a private operator screen (notes, DCs, overrides)
+  live-synced to a public story screen (full-bleed art and choices,
+  legible across a room) via a room code.
 
 This README is written for a tired parent at 7pm. If a step doesn't work,
 that's a bug — say so.
@@ -236,6 +243,55 @@ Build order and checkpoints are tracked against the project plan; each phase
 gets verified (and, where it depends on the OpenAI API, actually run) before
 being called done. Nothing is stubbed or scope-crept — every path above was
 exercised through the real running app, not just unit-tested in isolation.
+
+## Family party mode
+
+A post-deploy addition on top of Phases 1-8: a whole-family, single-screen
+way to play, at `/play`, alongside (not replacing) the original two-device
+DM/Story mode.
+
+- **Multi-character parties** — a campaign now belongs to one or more
+  characters (`campaign_characters` join table), not exactly one. The
+  youngest party member's `readingAge` is snapshotted onto the campaign at
+  creation and drives prose difficulty for the whole group.
+- **Everyone rolls** — when a choice needs a check, every party member
+  present gets their own roll row (their own modifier, their own
+  advantage/disadvantage eligibility by their own age). The check succeeds
+  if *any* party member succeeds (`resolvePartyRoll` in
+  `src/server/dice/rollResolution.ts`) — a deliberate kid-friendly rule so
+  a little sibling's bad roll never blocks the group.
+- **Adventure library** (`src/lib/adventures.ts`) — five prebuilt story
+  premises to pick from instead of building a World Setting from scratch;
+  picking one auto-creates (or reuses) the matching `WorldSetting` row.
+- **`CampaignPlayView` is shared, not duplicated** — the same component
+  now backs both `/dm/campaigns/[id]` (full operator mode: DM notes, room
+  code, regenerate/force-ending/direction tools) and
+  `/play/campaigns/[id]` (family mode: none of that, just the story and
+  the party roll panel) via a `showDmTools` prop, so both modes get bug
+  fixes and roll-UI changes together instead of drifting apart.
+- **Age-gated mature combat** (`Settings.matureCombatEnabled`, toggle in
+  Preferences) — off by default. When on, and every party member in a
+  campaign is 10+, combat may include a monster actually being killed or
+  destroyed, stated plainly, never graphically — everything else in the
+  safety rules stays exactly as strict (see `MATURE_SAFETY_RULES` in
+  `src/server/storyEngine/generateBeatContent.ts`): still zero gore, still
+  zero conflict with humans (that check is never relaxed), no torture, no
+  cruelty. `MATURE_COMBAT_WORDS` in `wordList.ts` is the small, explicit
+  set of words this exempts from the content-policy ban.
+
+Verified: schema-migrated real pre-existing campaign data (backfilled a
+one-character-per-campaign history into the new join table with zero data
+loss), a clean `tsc`/`eslint`/`vitest`/`next build` pass, and a live
+Playwright click-through of the new party-creation form and the two-member
+roll panel on both `/dm` and `/play` — confirmed the younger party
+member's advantage/disadvantage selector correctly stays hidden while the
+older member's shows, and that `/play` shows no DM notes, no room code,
+and no operator tools. Not verified live end-to-end against the real
+OpenAI API in this session — this sandbox's network policy didn't have
+`api.openai.com` allow-listed at the time, so a brand-new campaign
+couldn't actually be generated here; the generation code path itself is
+the same one already live-verified in every earlier phase, just now
+called with a party array instead of a single character.
 
 ## Project structure
 

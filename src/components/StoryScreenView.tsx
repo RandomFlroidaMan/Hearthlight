@@ -43,12 +43,16 @@ type MuteFlags = {
 export function StoryScreenView({
   campaignId,
   roomCode,
+  primaryCharacterId,
   initialScene,
   initialMute,
   audioManifest,
 }: {
   campaignId: string;
   roomCode: string;
+  /** Who this screen's die roll counts for — see the page-level comment on
+   * why this legacy view only rolls for one party member. */
+  primaryCharacterId: string | null;
   initialScene: SceneData;
   initialMute: MuteFlags;
   audioManifest: AudioManifest;
@@ -103,7 +107,10 @@ export function StoryScreenView({
     const res = await fetch(`/api/campaigns/${campaignId}/beats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ choiceIndex: index, ...(raw ? { roll: { raw } } : {}) }),
+      body: JSON.stringify({
+        choiceIndex: index,
+        ...(raw && primaryCharacterId ? { roll: [{ characterId: primaryCharacterId, raw }] } : {}),
+      }),
     });
     setLoading(false);
     setPendingChoiceIndex(null);

@@ -32,7 +32,7 @@ const { generateSceneImage } = await import("../generateSceneImage");
  */
 describe("generateSceneImage retry/fallback", () => {
   const baseParams = {
-    character: { portraitPath: null },
+    characters: [{ portraitPath: null }],
     worldSetting: {
       id: "setting-1",
       referenceImages: [] as string[],

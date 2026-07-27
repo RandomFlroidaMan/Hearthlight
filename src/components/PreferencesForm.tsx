@@ -7,6 +7,7 @@ type Prefs = {
   ambienceMuted: boolean;
   effectsMuted: boolean;
   dmFudgeEnabled: boolean;
+  matureCombatEnabled: boolean;
   monthlyCapUsd: number | null;
 };
 
@@ -43,6 +44,13 @@ const FIELDS: Field[] = [
     key: "dmFudgeEnabled",
     label: "DM fudge",
     description: "Show force-success/force-failure buttons on skill checks.",
+    onMeans: "true",
+  },
+  {
+    key: "matureCombatEnabled",
+    label: "Mature combat",
+    description:
+      "Lets combat be real (a monster can be killed, stated plainly, never graphic) instead of always gentle. Only takes effect when every party member in a campaign is age 10+; conflict is still ever only with fantastical monsters, never people.",
     onMeans: "true",
   },
 ];

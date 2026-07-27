@@ -8,7 +8,13 @@ import type { Choice } from "@/server/storyEngine/beatSchema";
 
 export const dynamic = "force-dynamic";
 
-export default async function CampaignPage({
+/**
+ * The family single-screen mode: one shared view for the whole party, no
+ * DM notes, no room code, no second device. Reuses CampaignPlayView with
+ * showDmTools off — see that component for why it's shared with /dm rather
+ * than duplicated.
+ */
+export default async function PlayCampaignPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -30,8 +36,6 @@ export default async function CampaignPage({
 
   const latestScene = campaign.scenes[0];
   if (!latestScene) {
-    // Shouldn't happen — campaign creation always generates the first beat
-    // synchronously — but fail loudly rather than rendering a blank page.
     throw new Error(`Campaign ${id} has no scenes.`);
   }
 
@@ -52,30 +56,13 @@ export default async function CampaignPage({
     }),
   }));
 
-  // No settings-management UI exists yet — this just reads the singleton
-  // row the schema already defines, defaulting false if it's never been created.
-  const settings = await db.settings.findUnique({ where: { id: "default" } });
-
   const partyLabel = characters.map((c) => c.displayName ?? c.name).join(" & ");
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
-      <div className="flex items-center justify-between">
-        <Link href="/dm" className="text-sm text-zinc-400 hover:text-zinc-200">
-          ← DM screen
-        </Link>
-        <div className="flex gap-4">
-          <Link href={`/play/campaigns/${campaign.id}`} className="text-sm text-zinc-400 hover:text-zinc-200">
-            Open family screen →
-          </Link>
-          <Link
-            href={`/story/campaigns/${campaign.id}`}
-            className="text-sm text-zinc-400 hover:text-zinc-200"
-          >
-            Open story screen →
-          </Link>
-        </div>
-      </div>
+      <Link href="/play" className="text-sm text-zinc-400 hover:text-zinc-200">
+        ← Play together
+      </Link>
       <h1 className="text-xl font-semibold text-zinc-50">
         {partyLabel} in {campaign.worldSetting.name}
       </h1>
@@ -93,7 +80,8 @@ export default async function CampaignPage({
           isEnding: latestScene.isEnding,
         }}
         party={party}
-        dmFudgeEnabled={settings?.dmFudgeEnabled ?? false}
+        dmFudgeEnabled={false}
+        showDmTools={false}
       />
     </div>
   );

@@ -27,7 +27,7 @@ export function NewCampaignForm({
     const res = await fetch("/api/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ characterId, worldSettingId, tone: tone || null }),
+      body: JSON.stringify({ characterIds: [characterId], worldSettingId, tone: tone || null }),
     });
 
     if (!res.ok) {

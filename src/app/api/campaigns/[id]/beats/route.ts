@@ -8,6 +8,7 @@ import {
 import { parseJsonBody } from "@/server/http";
 
 const rollSchema = z.object({
+  characterId: z.string(),
   raw: z.number().int().min(1).max(20),
   raw2: z.number().int().min(1).max(20).optional(),
   mode: z.enum(["normal", "advantage", "disadvantage"]).optional(),
@@ -15,7 +16,7 @@ const rollSchema = z.object({
 
 const advanceSchema = z.object({
   choiceIndex: z.number().int().min(0).optional(),
-  roll: rollSchema.optional(),
+  roll: z.array(rollSchema).optional(),
   fudge: z.enum(["success", "failure"]).optional(),
   direction: z.string().nullable().optional(),
   forceEnding: z.boolean().optional(),

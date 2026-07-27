@@ -16,7 +16,10 @@ export default async function StoryCampaignPage({
   const [campaign, settings, audioManifest] = await Promise.all([
     db.campaign.findUnique({
       where: { id },
-      include: { scenes: { orderBy: { order: "desc" }, take: 1 } },
+      include: {
+        scenes: { orderBy: { order: "desc" }, take: 1 },
+        characters: { include: { character: true }, orderBy: { createdAt: "asc" } },
+      },
     }),
     db.settings.findUnique({ where: { id: "default" } }),
     getAudioManifest(),
@@ -29,10 +32,17 @@ export default async function StoryCampaignPage({
     throw new Error(`Campaign ${id} has no scenes.`);
   }
 
+  // This screen's bare "what did your die show?" number pad only rolls for
+  // one character — it predates party mode. For a real party, /play is the
+  // intended single-screen experience where everyone rolls; this legacy
+  // two-screen view just rolls on behalf of the first party member.
+  const primaryCharacterId = campaign.characters[0]?.characterId ?? null;
+
   return (
     <StoryScreenView
       campaignId={campaign.id}
       roomCode={campaign.roomCode}
+      primaryCharacterId={primaryCharacterId}
       initialScene={{
         id: latestScene.id,
         prose: latestScene.prose,

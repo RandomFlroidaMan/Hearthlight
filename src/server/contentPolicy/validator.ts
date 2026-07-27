@@ -1,4 +1,4 @@
-import { BANNED_WORDS, CONFLICT_WORDS, HUMAN_WORDS } from "./wordList";
+import { BANNED_WORDS, CONFLICT_WORDS, HUMAN_WORDS, MATURE_COMBAT_WORDS } from "./wordList";
 
 /** The minimal shape validateBeat needs — kept local (not imported from
  * storyEngine) so this module stays self-contained and independently
@@ -23,10 +23,12 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const BANNED_PATTERN = new RegExp(
-  `\\b(${BANNED_WORDS.map(escapeRegExp).join("|")})\\b`,
-  "i",
-);
+function bannedPattern(matureCombatAllowed: boolean): RegExp {
+  const words = matureCombatAllowed
+    ? BANNED_WORDS.filter((w) => !(MATURE_COMBAT_WORDS as readonly string[]).includes(w))
+    : BANNED_WORDS;
+  return new RegExp(`\\b(${words.map(escapeRegExp).join("|")})\\b`, "i");
+}
 
 function containsAny(text: string, words: string[]): boolean {
   const pattern = new RegExp(`\\b(${words.map(escapeRegExp).join("|")})\\b`, "i");
@@ -50,14 +52,22 @@ function allText(beat: BeatLike): string[] {
  *    can't fully guarantee "never fight a person"; this flags the common
  *    case (a human word and a conflict word both present) and accepts
  *    over-flagging as the safe failure mode, since a false positive just
- *    triggers a regeneration, not a bad beat reaching the screen.
+ *    triggers a regeneration, not a bad beat reaching the screen. This
+ *    check is never relaxed by matureCombatAllowed — conflict is always
+ *    only ever with fantastical monsters.
+ *
+ * `matureCombatAllowed` (the age-gated family setting) only exempts
+ * MATURE_COMBAT_WORDS from check 1 — the bare vocabulary of a monster
+ * being permanently defeated. Every other banned word (gore, distress,
+ * cruelty) stays banned regardless.
  */
-export function validateBeat(beat: BeatLike): ValidationResult {
+export function validateBeat(beat: BeatLike, options?: { matureCombatAllowed?: boolean }): ValidationResult {
   const violations: string[] = [];
   const texts = allText(beat);
+  const pattern = bannedPattern(options?.matureCombatAllowed ?? false);
 
   for (const text of texts) {
-    const match = text.match(BANNED_PATTERN);
+    const match = text.match(pattern);
     if (match) {
       violations.push(`Banned word "${match[0]}" found in: "${text}"`);
     }

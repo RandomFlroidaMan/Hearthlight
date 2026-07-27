@@ -75,3 +75,56 @@ export function resolveRoll(params: {
     isNatural1,
   };
 }
+
+/**
+ * Family party mode: every party member present rolls the same check
+ * against the same DC, using their own character's modifier and their own
+ * age-based complexity. The check succeeds if ANY party member succeeds —
+ * a deliberate kid-friendly rule (nobody carries the whole party's failure
+ * alone, and a little sibling rolling badly never blocks the group), not
+ * strict 5e RAW.
+ */
+export interface PartyRollerResult extends RollResult {
+  characterId: string;
+  characterName: string;
+}
+
+export interface PartyRollResult {
+  perCharacter: PartyRollerResult[];
+  success: boolean;
+  anyNatural20: boolean;
+  anyNatural1: boolean;
+}
+
+export function resolvePartyRoll(params: {
+  dc: number;
+  rollers: Array<{
+    characterId: string;
+    characterName: string;
+    raw: number;
+    raw2?: number;
+    mode?: RollMode;
+    modifier: number;
+    useModifier: boolean;
+  }>;
+}): PartyRollResult {
+  const perCharacter = params.rollers.map((roller) => ({
+    characterId: roller.characterId,
+    characterName: roller.characterName,
+    ...resolveRoll({
+      raw: roller.raw,
+      raw2: roller.raw2,
+      mode: roller.mode,
+      modifier: roller.modifier,
+      dc: params.dc,
+      useModifier: roller.useModifier,
+    }),
+  }));
+
+  return {
+    perCharacter,
+    success: perCharacter.some((r) => r.success),
+    anyNatural20: perCharacter.some((r) => r.isNatural20),
+    anyNatural1: perCharacter.some((r) => r.isNatural1),
+  };
+}

@@ -47,9 +47,19 @@ const GOLD = rgb(0.65, 0.48, 0.08);
 function rollHighlight(rollResult: unknown): string | null {
   if (!rollResult || typeof rollResult !== "object") return null;
   const r = rollResult as Record<string, unknown>;
-  if (r.isNatural20 === true) return "⭐ A perfect roll!";
-  if (r.isNatural1 === true) return "A wobbly roll, but the story went on!";
+  // anyNatural20/anyNatural1: party-mode rolls (every party member rolls).
+  // isNatural20/isNatural1: the older single-roller shape, kept for
+  // campaigns started before party mode existed.
+  if (r.anyNatural20 === true || r.isNatural20 === true) return "⭐ A perfect roll!";
+  if (r.anyNatural1 === true || r.isNatural1 === true) return "A wobbly roll, but the story went on!";
   return null;
+}
+
+/** "Alex", "Alex & Sam", or "Alex, Sam & Robin" — the party as one readable label. */
+function partyLabel(characters: Character[]): string {
+  const names = characters.map((c) => c.displayName ?? c.name);
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 }
 
 const FONTS_DIR = path.join(process.cwd(), "src", "server", "keepsake", "fonts");
@@ -149,7 +159,7 @@ async function drawImageFit(
 }
 
 export type KeepsakeCampaign = Campaign & {
-  character: Character;
+  characters: Character[];
   worldSetting: WorldSetting;
   /** Must be ordered ascending by `order`. */
   scenes: Scene[];
@@ -159,19 +169,26 @@ export type KeepsakeCampaign = Campaign & {
 export async function buildKeepsake(campaign: KeepsakeCampaign): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const { regular, bold } = await loadFonts(pdfDoc);
-  const heroName = campaign.character.displayName ?? campaign.character.name;
+  const heroName = partyLabel(campaign.characters);
 
   // --- Cover page ---
   const cover = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-  if (campaign.character.portraitPath) {
-    const portraitBytes = await readImageBytes(campaign.character.portraitPath);
-    const size = 260;
-    await drawImageFit(pdfDoc, cover, portraitBytes, {
-      x: (PAGE_WIDTH - size) / 2,
-      y: PAGE_HEIGHT - size - 90,
-      width: size,
-      height: size,
-    });
+  const portraitedCharacters = campaign.characters.filter((c) => c.portraitPath);
+  if (portraitedCharacters.length > 0) {
+    // Lay portraits side by side, largest when it's just one hero.
+    const count = portraitedCharacters.length;
+    const size = count === 1 ? 260 : Math.min(180, (PAGE_WIDTH - MARGIN * 2 - (count - 1) * 16) / count);
+    const totalWidth = size * count + 16 * (count - 1);
+    const startX = (PAGE_WIDTH - totalWidth) / 2;
+    for (let i = 0; i < count; i++) {
+      const portraitBytes = await readImageBytes(portraitedCharacters[i].portraitPath!);
+      await drawImageFit(pdfDoc, cover, portraitBytes, {
+        x: startX + i * (size + 16),
+        y: PAGE_HEIGHT - size - 90,
+        width: size,
+        height: size,
+      });
+    }
   }
   drawCenteredText(cover, heroName, { font: bold, size: 32, y: PAGE_HEIGHT - 470 });
   drawCenteredText(cover, `An adventure in ${campaign.worldSetting.name}`, {

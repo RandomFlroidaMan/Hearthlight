@@ -9,6 +9,7 @@ const DEFAULTS = {
   ambienceMuted: false,
   effectsMuted: false,
   dmFudgeEnabled: false,
+  matureCombatEnabled: false,
   monthlyCapUsd: null as number | null,
 };
 
@@ -17,6 +18,7 @@ const patchSchema = z.object({
   ambienceMuted: z.boolean().optional(),
   effectsMuted: z.boolean().optional(),
   dmFudgeEnabled: z.boolean().optional(),
+  matureCombatEnabled: z.boolean().optional(),
   monthlyCapUsd: z.number().positive().nullable().optional(),
 });
 
@@ -30,6 +32,7 @@ export async function GET() {
     ambienceMuted: settings?.ambienceMuted ?? DEFAULTS.ambienceMuted,
     effectsMuted: settings?.effectsMuted ?? DEFAULTS.effectsMuted,
     dmFudgeEnabled: settings?.dmFudgeEnabled ?? DEFAULTS.dmFudgeEnabled,
+    matureCombatEnabled: settings?.matureCombatEnabled ?? DEFAULTS.matureCombatEnabled,
     monthlyCapUsd: settings?.monthlyCapUsd ?? DEFAULTS.monthlyCapUsd,
   });
 }

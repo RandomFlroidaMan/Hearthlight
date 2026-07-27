@@ -62,6 +62,30 @@ export const BANNED_WORDS = [
   "tortured",
 ];
 
+/** The subset of BANNED_WORDS that the age-gated mature-combat setting may
+ * exempt — purely the vocabulary of a monster being defeated permanently,
+ * with no graphic detail. Gore/distress words (blood, wound, stab, hurt,
+ * harm, cruelty, torture, corpse, etc.) stay banned even in mature mode;
+ * this setting is about the story being honest that combat has real
+ * stakes, not about depicting violence. */
+export const MATURE_COMBAT_WORDS = [
+  "kill",
+  "kills",
+  "killed",
+  "killing",
+  "die",
+  "died",
+  "dies",
+  "dying",
+  "dead",
+  "deadly",
+  "death",
+  "slay",
+  "slain",
+  "slays",
+  "slaying",
+];
+
 /** Guidance vocabulary fed into the generation prompt — not a strict
  * allowlist filter (that would reject too many valid creative phrasings),
  * but what the model is told to reach for. */

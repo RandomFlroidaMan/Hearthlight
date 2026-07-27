@@ -63,14 +63,17 @@ async function generateOnce(params: {
  * brief, a failure must never show a placeholder box.
  */
 export async function generateSceneImage(params: {
-  character: Pick<Character, "portraitPath">;
+  /** The whole party — every character with a reference portrait gets used
+   * as a reference image, so a group scene stays visually consistent with
+   * everyone, not just one hero. */
+  characters: Array<Pick<Character, "portraitPath">>;
   worldSetting: WorldSetting;
   sceneDescription: string;
   campaignId?: string | null;
 }): Promise<{ filename: string; fromFallback: boolean }> {
   const referenceImages = toStringArray(params.worldSetting.referenceImages);
   const referenceFilenames = [
-    ...(params.character.portraitPath ? [params.character.portraitPath] : []),
+    ...params.characters.flatMap((c) => (c.portraitPath ? [c.portraitPath] : [])),
     ...referenceImages,
   ];
 

@@ -75,6 +75,37 @@ describe("validateBeat", () => {
   });
 });
 
+describe("validateBeat with matureCombatAllowed", () => {
+  it("still rejects kill/die/dead by default (matureCombatAllowed false)", () => {
+    const result = validateBeat(beat({ prose: "The dragon was killed in the battle." }));
+    expect(result.valid).toBe(false);
+  });
+
+  it("allows kill/die/dead when matureCombatAllowed is true", () => {
+    const result = validateBeat(beat({ prose: "The dragon was killed in the battle." }), {
+      matureCombatAllowed: true,
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("still rejects gore/distress words even when matureCombatAllowed is true", () => {
+    for (const word of ["blood", "wound", "cruel", "torture"]) {
+      const result = validateBeat(beat({ prose: `There was ${word} everywhere after the fight.` }), {
+        matureCombatAllowed: true,
+      });
+      expect(result.valid, `expected "${word}" to still be banned`).toBe(false);
+    }
+  });
+
+  it("still rejects human conflict even when matureCombatAllowed is true", () => {
+    const result = validateBeat(beat({ prose: "You fight and kill the bandit blocking the road." }), {
+      matureCombatAllowed: true,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.violations.some((v) => v.includes("human"))).toBe(true);
+  });
+});
+
 describe("FALLBACK_BEATS", () => {
   it("every fallback beat passes its own validator", () => {
     for (const [act, fallback] of Object.entries(FALLBACK_BEATS)) {

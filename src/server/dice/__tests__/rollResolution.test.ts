@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { complexityForAge, resolveRoll } from "../rollResolution";
+import { complexityForAge, resolvePartyRoll, resolveRoll } from "../rollResolution";
 
 describe("complexityForAge", () => {
   it("age 3 ignores the modifier and disallows advantage", () => {
@@ -63,5 +63,56 @@ describe("resolveRoll", () => {
   it("ignores raw2 in normal mode", () => {
     const result = resolveRoll({ raw: 6, raw2: 20, mode: "normal", modifier: 0, dc: 10, useModifier: true });
     expect(result.effectiveRaw).toBe(6);
+  });
+});
+
+describe("resolvePartyRoll", () => {
+  it("succeeds if any party member succeeds, even if others fail", () => {
+    const result = resolvePartyRoll({
+      dc: 15,
+      rollers: [
+        { characterId: "a", characterName: "Alex", raw: 3, modifier: 0, useModifier: true },
+        { characterId: "b", characterName: "Sam", raw: 18, modifier: 0, useModifier: true },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(result.perCharacter).toHaveLength(2);
+    expect(result.perCharacter[0].success).toBe(false);
+    expect(result.perCharacter[1].success).toBe(true);
+  });
+
+  it("fails only when every party member fails", () => {
+    const result = resolvePartyRoll({
+      dc: 15,
+      rollers: [
+        { characterId: "a", characterName: "Alex", raw: 3, modifier: 0, useModifier: true },
+        { characterId: "b", characterName: "Sam", raw: 5, modifier: 0, useModifier: true },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("reports anyNatural20 when at least one roller nat-20s, even if the party overall would have failed otherwise", () => {
+    const result = resolvePartyRoll({
+      dc: 25,
+      rollers: [
+        { characterId: "a", characterName: "Alex", raw: 20, modifier: 0, useModifier: true },
+        { characterId: "b", characterName: "Sam", raw: 4, modifier: 0, useModifier: true },
+      ],
+    });
+    expect(result.anyNatural20).toBe(true);
+    expect(result.success).toBe(true); // a natural 20 always succeeds for that roller
+  });
+
+  it("each roller uses their own modifier and complexity, not a shared one", () => {
+    const result = resolvePartyRoll({
+      dc: 12,
+      rollers: [
+        { characterId: "a", characterName: "Young", raw: 10, modifier: 5, useModifier: false },
+        { characterId: "b", characterName: "Old", raw: 10, modifier: 5, useModifier: true },
+      ],
+    });
+    expect(result.perCharacter[0].total).toBe(10); // modifier ignored (age 3)
+    expect(result.perCharacter[1].total).toBe(15); // modifier applied
   });
 });

@@ -23,6 +23,7 @@ export default async function PreferencesPage() {
           ambienceMuted: settings?.ambienceMuted ?? false,
           effectsMuted: settings?.effectsMuted ?? false,
           dmFudgeEnabled: settings?.dmFudgeEnabled ?? false,
+          matureCombatEnabled: settings?.matureCombatEnabled ?? false,
           monthlyCapUsd: settings?.monthlyCapUsd ?? null,
         }}
         spendThisMonthUsd={spendThisMonthUsd}

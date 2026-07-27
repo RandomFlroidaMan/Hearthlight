@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   let currentWorldSetting = worldSetting;
   for (const prompt of scenePrompts) {
     const result = await generateSceneImage({
-      character: refreshedCharacter,
+      characters: [refreshedCharacter],
       worldSetting: currentWorldSetting,
       sceneDescription: prompt,
     });

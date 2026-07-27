@@ -7,10 +7,33 @@ import { planNextAct, type Act } from "./actPlanner";
 import { updateDigestIfNeeded, KEEP_RECENT_SCENES } from "./digest";
 import { getPrefetch } from "./prefetchCache";
 import { triggerPrefetch } from "./prefetch";
-import { complexityForAge, resolveRoll, type RollMode } from "@/server/dice/rollResolution";
+import { complexityForAge, resolvePartyRoll, type RollMode } from "@/server/dice/rollResolution";
 import { transport } from "@/server/sync/transport";
 import { isMonthlyCapExceeded } from "@/server/spendCap";
-import type { Campaign, Character, Scene, WorldSetting } from "@/generated/prisma/client";
+import type { Campaign, Character, Prisma, Scene, WorldSetting } from "@/generated/prisma/client";
+
+/** One party member's physical d20 result(s) for a check — everyone present
+ * rolls, per the family co-op rule (see resolvePartyRoll). */
+export interface PartyRollInput {
+  characterId: string;
+  raw: number;
+  raw2?: number;
+  mode?: RollMode;
+}
+
+function skillModifierFor(character: Character, skill: NonNullable<Choice["skill"]>): number {
+  return deriveSkills({
+    className: character.className,
+    level: character.level,
+    strength: character.strength,
+    dexterity: character.dexterity,
+    constitution: character.constitution,
+    intelligence: character.intelligence,
+    wisdom: character.wisdom,
+    charisma: character.charisma,
+    proficiencies: toStringArray(character.proficiencies),
+  })[skill];
+}
 
 /** A skill-check choice was picked without a roll or a DM-fudge override —
  * a 400, not a generation failure, so the route reports it distinctly. */
@@ -40,20 +63,27 @@ export interface BeatOutcome {
 export async function generateBeat(params: {
   campaignId: string;
   choiceIndex?: number;
-  roll?: { raw: number; raw2?: number; mode?: RollMode };
+  /** One entry per party member present for this check — everyone rolls. */
+  roll?: PartyRollInput[];
   fudge?: "success" | "failure";
   direction?: string | null;
   forceEnding?: boolean;
   regenerate?: boolean;
 }): Promise<{ scene: Scene; outcome: BeatOutcome }> {
-  const campaign: (Campaign & { character: Character; worldSetting: WorldSetting }) | null =
-    await db.campaign.findUnique({
-      where: { id: params.campaignId },
-      include: { character: true, worldSetting: true },
-    });
-  if (!campaign) {
+  const campaignRow = await db.campaign.findUnique({
+    where: { id: params.campaignId },
+    include: { characters: { include: { character: true } }, worldSetting: true },
+  });
+  if (!campaignRow) {
     throw new CampaignNotFoundError(`No campaign found with id "${params.campaignId}".`);
   }
+  const { characters: partyLinks, ...campaign }: Campaign & { worldSetting: WorldSetting } & {
+    characters: { character: Character }[];
+  } = campaignRow;
+  const characters = partyLinks.map((link) => link.character);
+
+  const settings = await db.settings.findUnique({ where: { id: "default" } });
+  const matureCombatAllowed = (settings?.matureCombatEnabled ?? false) && campaign.readingAge >= 10;
 
   const scenes = await db.scene.findMany({
     where: { campaignId: params.campaignId },
@@ -66,7 +96,7 @@ export async function generateBeat(params: {
   const scenesInCurrentAct = priorScenes.filter((s) => s.act === campaign.act).length;
   const act: Act = params.forceEnding
     ? "resolution"
-    : planNextAct(campaign.act as Act, scenesInCurrentAct, campaign.character.readingAge);
+    : planNextAct(campaign.act as Act, scenesInCurrentAct, campaign.readingAge);
 
   const chosenChoice =
     params.choiceIndex !== undefined && latestScene
@@ -76,10 +106,13 @@ export async function generateBeat(params: {
   let chosenChoiceSucceeded = true;
   let chosenChoiceOutcomeHint: string | null = null;
   let hadCheck = false;
-  let isNatural20 = false;
+  let anyNatural20 = false;
 
   if (chosenChoice?.skill && chosenChoice.dc !== null) {
     hadCheck = true;
+    const skill = chosenChoice.skill;
+    const dc = chosenChoice.dc;
+
     if (params.fudge) {
       chosenChoiceSucceeded = params.fudge === "success";
 
@@ -87,45 +120,41 @@ export async function generateBeat(params: {
         await db.scene.update({
           where: { id: latestScene.id },
           data: {
-            rollResult: { skill: chosenChoice.skill, fudged: true, success: chosenChoiceSucceeded },
+            rollResult: { skill, fudged: true, success: chosenChoiceSucceeded },
           },
         });
       }
-    } else if (params.roll) {
-      const complexity = complexityForAge(campaign.character.readingAge);
-      const modifier = deriveSkills({
-        className: campaign.character.className,
-        level: campaign.character.level,
-        strength: campaign.character.strength,
-        dexterity: campaign.character.dexterity,
-        constitution: campaign.character.constitution,
-        intelligence: campaign.character.intelligence,
-        wisdom: campaign.character.wisdom,
-        charisma: campaign.character.charisma,
-        proficiencies: toStringArray(campaign.character.proficiencies),
-      })[chosenChoice.skill];
-
-      const rollResult = resolveRoll({
-        raw: params.roll.raw,
-        raw2: params.roll.raw2,
-        mode: params.roll.mode,
-        modifier,
-        dc: chosenChoice.dc,
-        useModifier: complexity.useModifier,
+    } else if (params.roll && params.roll.length > 0) {
+      const rollers = params.roll.map((r) => {
+        const character = characters.find((c) => c.id === r.characterId);
+        if (!character) {
+          throw new RollRequiredError(`No party member with id "${r.characterId}" on this campaign.`);
+        }
+        return {
+          characterId: character.id,
+          characterName: character.displayName ?? character.name,
+          raw: r.raw,
+          raw2: r.raw2,
+          mode: r.mode,
+          modifier: skillModifierFor(character, skill),
+          useModifier: complexityForAge(character.readingAge).useModifier,
+        };
       });
 
-      chosenChoiceSucceeded = rollResult.success;
-      isNatural20 = rollResult.isNatural20;
+      const partyResult = resolvePartyRoll({ dc, rollers });
+
+      chosenChoiceSucceeded = partyResult.success;
+      anyNatural20 = partyResult.anyNatural20;
 
       if (latestScene) {
         await db.scene.update({
           where: { id: latestScene.id },
-          data: { rollResult: { skill: chosenChoice.skill, ...rollResult } },
+          data: { rollResult: { skill, ...partyResult } as unknown as Prisma.InputJsonValue },
         });
       }
     } else {
       throw new RollRequiredError(
-        `Choice "${chosenChoice.text}" needs a roll (skill: ${chosenChoice.skill}, DC: ${chosenChoice.dc}) or a DM-fudge override.`,
+        `Choice "${chosenChoice.text}" needs a roll from every party member (skill: ${chosenChoice.skill}, DC: ${chosenChoice.dc}) or a DM-fudge override.`,
       );
     }
 
@@ -160,7 +189,9 @@ export async function generateBeat(params: {
     }
     content = await generateBeatContent(
       {
-        character: campaign.character,
+        characters,
+        readingAge: campaign.readingAge,
+        matureCombatAllowed,
         worldSetting: campaign.worldSetting,
         act,
         digestSummary: campaign.digestSummary,
@@ -228,6 +259,8 @@ export async function generateBeat(params: {
   // the response the player is waiting on right now.
   void triggerPrefetch({
     campaign: { ...campaign, act, npcsMet: updatedNpcsMet },
+    characters,
+    matureCombatAllowed,
     scene,
     priorScenes: params.regenerate ? priorScenes : scenes,
   });
@@ -237,7 +270,7 @@ export async function generateBeat(params: {
     outcome: {
       hadCheck,
       success: chosenChoiceSucceeded,
-      isNatural20,
+      isNatural20: anyNatural20,
       itemAwarded: beat.itemReward !== null,
     },
   };

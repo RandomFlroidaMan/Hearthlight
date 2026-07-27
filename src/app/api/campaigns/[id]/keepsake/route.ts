@@ -11,22 +11,25 @@ export async function GET(
 ) {
   const { id } = await ctx.params;
 
-  const campaign = await db.campaign.findUnique({
+  const campaignRow = await db.campaign.findUnique({
     where: { id },
     include: {
-      character: true,
+      characters: { include: { character: true } },
       worldSetting: true,
       scenes: { orderBy: { order: "asc" } },
       items: { orderBy: { earnedAtScene: "asc" } },
     },
   });
 
-  if (!campaign) {
+  if (!campaignRow) {
     return Response.json({ error: "campaign_not_found" }, { status: 404 });
   }
 
-  const pdfBytes = await buildKeepsake(campaign);
-  const heroName = campaign.character.displayName ?? campaign.character.name;
+  const { characters: partyLinks, ...campaign } = campaignRow;
+  const characters = partyLinks.map((link) => link.character);
+
+  const pdfBytes = await buildKeepsake({ ...campaign, characters });
+  const heroName = characters.map((c) => c.displayName ?? c.name).join("-and-");
   const filename = `${safeFilenamePart(heroName)}-keepsake.pdf`;
 
   return new Response(new Uint8Array(pdfBytes), {

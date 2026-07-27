@@ -30,13 +30,25 @@ const READING_AGE_GUIDANCE: Record<number, string> = {
   10: "Write for a 10-year-old: closer to a real chapter-book adventure — fuller sentences, more nuance, choices can have layered consequences.",
 };
 
-const SAFETY_RULES = `SAFETY RULES — follow these exactly, no exceptions:
+const GENTLE_SAFETY_RULES = `SAFETY RULES — follow these exactly, no exceptions:
 - Conflict is ONLY ever with fantastical monsters (goblins, trolls, slimes, imps, grumpy dragons, and similar). NEVER with humans, people, children, or any humanoid person.
 - NEVER use or imply: kill, die, dead, hurt, blood, wound, weapon injury, cruelty, or abandonment. Nothing frightening at bedtime.
 - Use only these kinds of outcomes: defeated, out-smarted, out-run, out-sung, shooed away, sent home, chased off, routed, tucked in for a nap, befriended, calmed, cheered up.
 - Monsters are never harmed — they give up, wander off, or become friends.
 - A failed choice is always a gentle, funny setback — never harm, never the end of the adventure.
 - No character death, no permanent loss, no "game over."`;
+
+/** The family's parent-controlled mature-combat setting (Settings.matureCombatEnabled),
+ * age-gated to a party where every member is 10+. Still keeps the human-conflict
+ * rule absolute and still bans gore/distress vocabulary — this only allows the
+ * story to be honest that a monster fight has real stakes, plainly stated,
+ * never graphic. */
+const MATURE_SAFETY_RULES = `SAFETY RULES — follow these exactly, no exceptions:
+- Conflict is ONLY ever with fantastical monsters (goblins, trolls, orcs, dragons, undead, and similar). NEVER with humans, people, children, or any humanoid person — this rule is absolute regardless of anything else below.
+- Combat can be real: a monster can be killed or destroyed in combat, stated plainly and briefly. This is allowed, but never required — outsmarting, driving off, or befriending a monster is just as valid an outcome as defeating it.
+- NEVER include graphic detail: no blood, no gore, no described wounds, no lingering suffering, no cruelty, no torture. State an outcome plainly ("the dragon is defeated") and move on — do not dwell on it.
+- A failed choice is a real setback with stakes, but never permanent for the party's own characters in a way that ends the adventure — a party member is never killed. Danger is real; the ending is never grim.
+- No graphic violence, no cruelty, no torture, no abandonment, no content beyond a PG adventure-movie level of intensity.`;
 
 const ACT_GUIDANCE: Record<Act, string> = {
   setup: "This is the opening beat. Introduce the world and give a low-stakes first choice.",
@@ -47,7 +59,14 @@ const ACT_GUIDANCE: Record<Act, string> = {
 };
 
 export interface BeatContext {
-  character: Character;
+  /** The whole party — one or more characters. */
+  characters: Character[];
+  /** Snapshotted at campaign creation (the youngest party member's age),
+   * so prose difficulty and roll complexity never shift mid-campaign. */
+  readingAge: number;
+  /** Settings.matureCombatEnabled, already gated by the caller to only be
+   * true when every party member is 10+. */
+  matureCombatAllowed: boolean;
   worldSetting: WorldSetting;
   act: Act;
   digestSummary: string | null;
@@ -91,10 +110,23 @@ function characterSummary(character: Character): string {
     .join(" ");
 }
 
+/** Every member of the party, so the story treats this as a group
+ * adventure rather than one hero with silent companions. */
+function partySummary(characters: Character[]): string {
+  if (characters.length === 1) {
+    return characterSummary(characters[0]);
+  }
+  return characters.map((c, i) => `(${i + 1}) ${characterSummary(c)}`).join(" ");
+}
+
 function buildUserPrompt(ctx: BeatContext): string {
+  const partyLabel = ctx.characters.length > 1 ? "PARTY" : "CHARACTER";
   const parts: string[] = [
     `WORLD: ${ctx.worldSetting.name} — ${ctx.worldSetting.description}`,
-    `CHARACTER: ${characterSummary(ctx.character)}`,
+    `${partyLabel}: ${partySummary(ctx.characters)}`,
+    ...(ctx.characters.length > 1
+      ? ["The whole party adventures and decides together — every choice is a group choice, not one character acting alone."]
+      : []),
     `CURRENT ACT: ${ctx.act}. ${ACT_GUIDANCE[ctx.act]}`,
   ];
 
@@ -148,14 +180,15 @@ function buildUserPrompt(ctx: BeatContext): string {
 }
 
 async function callModel(ctx: BeatContext): Promise<Beat> {
-  const readingAgeGuidance = READING_AGE_GUIDANCE[ctx.character.readingAge] ?? READING_AGE_GUIDANCE[5];
+  const readingAgeGuidance = READING_AGE_GUIDANCE[ctx.readingAge] ?? READING_AGE_GUIDANCE[5];
+  const safetyRules = ctx.matureCombatAllowed ? MATURE_SAFETY_RULES : GENTLE_SAFETY_RULES;
 
   const response = await openai.responses.create({
     model: modelConfig.text.model,
     input: [
       {
         role: "system",
-        content: `You are the Dungeon Master for a gentle, wondrous bedtime adventure.\n\n${SAFETY_RULES}\n\n${readingAgeGuidance}`,
+        content: `You are the Dungeon Master for a wondrous family adventure.\n\n${safetyRules}\n\n${readingAgeGuidance}`,
       },
       { role: "user", content: buildUserPrompt(ctx) },
     ],
@@ -173,7 +206,7 @@ async function generateValidatedBeat(ctx: BeatContext): Promise<Beat> {
 
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
     const beat = await callModel({ ...ctx, priorViolations: violations.length > 0 ? violations : undefined });
-    const result = validateBeat(beat);
+    const result = validateBeat(beat, { matureCombatAllowed: ctx.matureCombatAllowed });
     if (result.valid) {
       return beat;
     }
@@ -191,7 +224,7 @@ export async function generateBeatContent(ctx: BeatContext, campaignId: string):
 
   const [{ filename: imageFilename }, narrationFilename] = await Promise.all([
     generateSceneImage({
-      character: ctx.character,
+      characters: ctx.characters,
       worldSetting: ctx.worldSetting,
       sceneDescription: beat.imagePrompt,
       campaignId,

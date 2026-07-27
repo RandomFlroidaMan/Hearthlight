@@ -30,14 +30,16 @@ import type { Choice } from "./beatSchema";
  * shown right now.
  */
 export async function triggerPrefetch(params: {
-  campaign: Campaign & { character: Character; worldSetting: WorldSetting };
+  campaign: Campaign & { worldSetting: WorldSetting };
+  characters: Character[];
+  matureCombatAllowed: boolean;
   /** The scene that was just created/updated — prefetch guesses what
    * comes after it. */
   scene: Scene;
   /** Every scene before it, ascending by order. */
   priorScenes: Scene[];
 }): Promise<void> {
-  const { campaign, scene, priorScenes } = params;
+  const { campaign, characters, matureCombatAllowed, scene, priorScenes } = params;
 
   clearPrefetchForScene(scene.id);
 
@@ -50,13 +52,15 @@ export async function triggerPrefetch(params: {
   const choices = scene.choices as unknown as Choice[];
   const scenesIncludingCurrent = [...priorScenes, scene];
   const scenesInCurrentAct = scenesIncludingCurrent.filter((s) => s.act === campaign.act).length;
-  const act: Act = planNextAct(campaign.act as Act, scenesInCurrentAct, campaign.character.readingAge);
+  const act: Act = planNextAct(campaign.act as Act, scenesInCurrentAct, campaign.readingAge);
   const recentScenes = scenesIncludingCurrent.slice(-KEEP_RECENT_SCENES);
   const npcsMet = toStringArray(campaign.npcsMet);
 
   choices.forEach((choice, choiceIndex) => {
     const ctx: BeatContext = {
-      character: campaign.character,
+      characters,
+      readingAge: campaign.readingAge,
+      matureCombatAllowed,
       worldSetting: campaign.worldSetting,
       act,
       digestSummary: campaign.digestSummary,
