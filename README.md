@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and fill in:
 - `HEARTHLIGHT_MONTHLY_CAP_USD` — optional spend cap, enforced against the
   `SpendLog` table once the art/story engines are logging spend.
 
-## What's actually working right now (Phases 1–5)
+## What's actually working right now (Phases 1–8, plus a polish pass)
 
 **Phase 1 — skeleton:**
 - Next.js App Router project, TypeScript strict, Tailwind, `npm run dev`.
@@ -177,18 +177,62 @@ Copy `.env.example` to `.env` and fill in:
   an override having happened. Fixed to record `{ skill, fudged: true,
   success }`, re-verified live.
 
-## What's stubbed for later phases
+**Phase 6 — dual-screen sync:**
+- `server.ts` wraps Next's request handler in a plain `node:http` server so
+  a `ws` WebSocket server can share the same port; `RealtimeTransport`
+  (`src/server/sync/transport.ts`) is a singleton that broadcasts per room.
+- Each campaign gets a `roomCode`; the DM screen displays it, and `/story`
+  has a join-by-code form for the kid's device.
+- `generateBeat.ts` and the prose-edit route broadcast every change so both
+  screens update live, with no polling.
+- `useCampaignSync` client hook handles dropped connections and rejoin.
+- **Verified with two real browser tabs side by side**, including a
+  deliberate disconnect/reconnect.
 
-These directories are empty — they're the shape of what's coming, not
-working code:
+**Phase 7 — audio:**
+- Per-scene TTS narration (`generateNarration.ts`), ambience per
+  biome/tag (including a "danger" track), and one-shot SFX, all resolved
+  through `assetManifest.ts`.
+- `useAudioEngine` client hook: per-bus muting, ambience ducked under
+  narration. `/dm/preferences` sets audio defaults.
+- `spendLog.ts` records TTS cost alongside image/text spend.
+- **Verified live**: real generated narration played back, ambience/SFX
+  swapped correctly on scene change, mute toggles held across scenes.
 
-| Path | Lands in |
-| --- | --- |
-| `src/server/sync/` | Phase 6 — dual-screen WebSocket sync |
+**Phase 8 — keepsake export:**
+- `buildKeepsake.ts` assembles a printable PDF storybook from a finished
+  campaign (Comic Neue vendored via `@pdf-lib/fontkit`) — prose and art
+  only, no DM notes or mechanics leak in.
+- "Download keepsake" button on the DM screen; `GET
+  /api/campaigns/[id]/keepsake`.
+- **Verified**: generated a real keepsake from a played campaign and read
+  it back to confirm structure.
+
+**Polish pass (post-Phase-8 hardening):**
+- Fixed a real data-corruption bug from a malformed Prisma migration
+  (`DEFAULT []` instead of `DEFAULT '[]'`) that had silently broken every
+  existing campaign.
+- Speculative prefetching of the next beat's art + text on the
+  likely-outcome branch, so advancing a choice feels instant.
+- A deliberate "the story continues…" loading state (keeps the previous
+  art on screen instead of a spinner), respecting `prefers-reduced-motion`.
+- Monthly spend cap (`HEARTHLIGHT_MONTHLY_CAP_USD`), enforced at both
+  campaign creation and beat advancement.
+- Structured NPC tracking (`Campaign.npcsMet`) fed back into future beat
+  prompts for character continuity.
+- Browser `speechSynthesis` fallback narration for when generated audio is
+  missing, plus a manual replay button.
+- Memorable natural-20/natural-1 roll highlights in the keepsake PDF.
+- Accessibility pass: app-wide visible focus ring, aria-labels on
+  icon-only controls, keyboard navigation verified live.
+- React error boundaries (`error.tsx` / `global-error.tsx`) per Next 16's
+  current `unstable_retry()` convention.
+- A full click-through debug pass across every route.
 
 Build order and checkpoints are tracked against the project plan; each phase
 gets verified (and, where it depends on the OpenAI API, actually run) before
-being called done.
+being called done. Nothing is stubbed or scope-crept — every path above was
+exercised through the real running app, not just unit-tested in isolation.
 
 ## Project structure
 
