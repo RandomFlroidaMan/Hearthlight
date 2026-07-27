@@ -19,6 +19,9 @@ npm run dev
 
 Open http://localhost:3000 — it links to `/dm` and `/story`.
 
+Want this reachable from a phone or tablet away from your home network?
+See [`DEPLOY.md`](./DEPLOY.md).
+
 ## Environment
 
 Copy `.env.example` to `.env` and fill in:

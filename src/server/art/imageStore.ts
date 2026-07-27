@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { DATA_DIR } from "@/server/config/dataDir";
 
 /** Generated art lives on disk, outside `public/`, per the brief — served
  * through /api/images/[filename] rather than Next's static file convention. */
-export const IMAGES_DIR = path.join(process.cwd(), "data", "images");
+export const IMAGES_DIR = path.join(DATA_DIR, "images");
 
 async function ensureImagesDir(): Promise<void> {
   await mkdir(IMAGES_DIR, { recursive: true });

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "next build",
+    "prestart": "prisma migrate deploy",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "test": "vitest run",

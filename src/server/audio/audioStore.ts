@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { DATA_DIR } from "@/server/config/dataDir";
 
 /** Generated narration lives on disk, outside `public/`, same as generated
  * art — served through /api/audio/[filename] rather than Next's static
  * file convention. Reuses the same hashCacheKey helper as images. */
-export const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
+export const AUDIO_DIR = path.join(DATA_DIR, "audio");
 
 async function ensureAudioDir(): Promise<void> {
   await mkdir(AUDIO_DIR, { recursive: true });
