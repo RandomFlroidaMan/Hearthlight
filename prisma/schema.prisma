@@ -76,6 +76,7 @@ model Campaign {
   tone              String?
   digestSummary     String? // running summary of older scenes for long-context coherence
   unresolvedThreads Json      @default("[]")
+  npcsMet           Json      @default("[]") // string[] of "Name: description" for named characters met, fed back into prompts for continuity
   status            String    @default("active") // active | ended | archived
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

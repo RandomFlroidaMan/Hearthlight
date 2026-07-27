@@ -167,7 +167,7 @@ export function StoryScreenView({
             alt=""
             fill
             priority
-            className="object-cover"
+            className={`object-cover ${loading ? "image-breathe" : ""}`}
           />
         </div>
       )}
@@ -176,7 +176,10 @@ export function StoryScreenView({
         <p className="max-w-3xl text-2xl leading-relaxed sm:text-4xl">{scene.prose}</p>
 
         {loading ? (
-          <p className="text-lg text-zinc-400">…</p>
+          <div className="flex items-center gap-3 text-lg text-amber-200/80">
+            <span className="lantern-glow h-3 w-3 rounded-full bg-amber-300" aria-hidden="true" />
+            <span>The story continues&hellip;</span>
+          </div>
         ) : scene.isEnding ? (
           <p className="text-xl text-amber-300">The End</p>
         ) : pendingChoiceIndex !== null ? (

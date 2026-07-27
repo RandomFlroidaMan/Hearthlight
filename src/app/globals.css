@@ -24,3 +24,46 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* A warm "the story continues" moment while the next beat generates —
+   deliberately not a spinner. The previous illustration stays on screen
+   and gently breathes underneath a small pulsing lantern-glow dot next to
+   the loading message. */
+@keyframes lantern-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes image-breathe {
+  0%,
+  100% {
+    filter: brightness(0.85) saturate(0.9);
+  }
+  50% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.lantern-glow {
+  animation: lantern-glow 1.8s ease-in-out infinite;
+}
+
+.image-breathe {
+  animation: image-breathe 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lantern-glow,
+  .image-breathe {
+    animation: none;
+    opacity: 0.85;
+    filter: brightness(0.9);
+  }
+}

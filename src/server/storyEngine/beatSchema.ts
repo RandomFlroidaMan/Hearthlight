@@ -37,6 +37,11 @@ export const itemRewardSchema = z.object({
   description: z.string().min(1),
 });
 
+export const npcIntroducedSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+});
+
 export const beatSchema = z.object({
   /** 2-4 simple sentences, read aloud. */
   prose: z.string().min(1),
@@ -47,6 +52,11 @@ export const beatSchema = z.object({
   imagePrompt: z.string().min(1),
   ambientTrack: z.enum(ambientTracks).nullable().describe(AMBIENT_TRACK_DESCRIPTION),
   itemReward: itemRewardSchema.nullable(),
+  /** A named character (not a nameless background creature) met for the
+   * FIRST time this beat — null if nobody new and named was introduced.
+   * Tracked on Campaign.npcsMet and fed back into later prompts so
+   * returning characters stay consistent. */
+  npcIntroduced: npcIntroducedSchema.nullable(),
   isEnding: z.boolean(),
 });
 

@@ -9,6 +9,7 @@ const DEFAULTS = {
   ambienceMuted: false,
   effectsMuted: false,
   dmFudgeEnabled: false,
+  monthlyCapUsd: null as number | null,
 };
 
 const patchSchema = z.object({
@@ -16,6 +17,7 @@ const patchSchema = z.object({
   ambienceMuted: z.boolean().optional(),
   effectsMuted: z.boolean().optional(),
   dmFudgeEnabled: z.boolean().optional(),
+  monthlyCapUsd: z.number().positive().nullable().optional(),
 });
 
 /** The Settings row is a lazily-created singleton — reads never create it,
@@ -28,6 +30,7 @@ export async function GET() {
     ambienceMuted: settings?.ambienceMuted ?? DEFAULTS.ambienceMuted,
     effectsMuted: settings?.effectsMuted ?? DEFAULTS.effectsMuted,
     dmFudgeEnabled: settings?.dmFudgeEnabled ?? DEFAULTS.dmFudgeEnabled,
+    monthlyCapUsd: settings?.monthlyCapUsd ?? DEFAULTS.monthlyCapUsd,
   });
 }
 

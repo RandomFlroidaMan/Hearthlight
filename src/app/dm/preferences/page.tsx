@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { db } from "@/server/db";
 import { PreferencesForm } from "@/components/PreferencesForm";
+import { getMonthSpendUsd } from "@/server/spendCap";
 
 export const dynamic = "force-dynamic";
 
 export default async function PreferencesPage() {
-  const settings = await db.settings.findUnique({ where: { id: "default" } });
+  const [settings, spendThisMonthUsd] = await Promise.all([
+    db.settings.findUnique({ where: { id: "default" } }),
+    getMonthSpendUsd(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
@@ -19,7 +23,9 @@ export default async function PreferencesPage() {
           ambienceMuted: settings?.ambienceMuted ?? false,
           effectsMuted: settings?.effectsMuted ?? false,
           dmFudgeEnabled: settings?.dmFudgeEnabled ?? false,
+          monthlyCapUsd: settings?.monthlyCapUsd ?? null,
         }}
+        spendThisMonthUsd={spendThisMonthUsd}
       />
     </div>
   );

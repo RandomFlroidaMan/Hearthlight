@@ -32,6 +32,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     imagePrompt: "A sunlit path curling into a peaceful clearing, something small and curious peeking from the leaves.",
     ambientTrack: "forest",
     itemReward: null,
+    npcIntroduced: null,
     isEnding: false,
   },
   journey: {
@@ -57,6 +58,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     imagePrompt: "A small friendly creature leading the way toward a warm distant glow.",
     ambientTrack: "forest",
     itemReward: null,
+    npcIntroduced: null,
     isEnding: false,
   },
   complication: {
@@ -82,6 +84,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     imagePrompt: "A wobbly, harmless slime blocking a path, blinking and bouncing playfully.",
     ambientTrack: "forest",
     itemReward: null,
+    npcIntroduced: null,
     isEnding: false,
   },
   climax: {
@@ -107,6 +110,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     imagePrompt: "A big mossy troll guarding a treasure chest, looking lonely rather than fierce.",
     ambientTrack: "danger",
     itemReward: { name: "Mossy Trinket", description: "A small charm the troll was keeping safe." },
+    npcIntroduced: null,
     isEnding: false,
   },
   resolution: {
@@ -132,6 +136,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     imagePrompt: "A warm golden-hour farewell scene with friendly companions waving goodbye.",
     ambientTrack: "village",
     itemReward: null,
+    npcIntroduced: null,
     isEnding: true,
   },
 };

@@ -217,8 +217,15 @@ export function CampaignPlayView({
           alt="Current scene"
           width={768}
           height={432}
-          className="rounded-md object-cover"
+          className={`rounded-md object-cover ${busy ? "image-breathe" : ""}`}
         />
+      )}
+
+      {busy && (
+        <div className="flex items-center gap-2 text-sm text-amber-200/80">
+          <span className="lantern-glow h-2.5 w-2.5 rounded-full bg-amber-300" aria-hidden="true" />
+          <span>Working on the next beat&hellip;</span>
+        </div>
       )}
 
       {editingProse ? (

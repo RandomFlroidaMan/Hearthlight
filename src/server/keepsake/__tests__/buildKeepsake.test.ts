@@ -21,6 +21,7 @@ function fakeCampaign(overrides: Partial<KeepsakeCampaign> = {}): KeepsakeCampai
     tone: null,
     digestSummary: null,
     unresolvedThreads: [],
+    npcsMet: [],
     status: "ended",
     createdAt: now,
     updatedAt: now,

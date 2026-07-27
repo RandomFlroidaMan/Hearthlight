@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { generateBeat, CampaignNotFoundError, RollRequiredError } from "@/server/storyEngine/generateBeat";
+import {
+  generateBeat,
+  CampaignNotFoundError,
+  MonthlyCapExceededError,
+  RollRequiredError,
+} from "@/server/storyEngine/generateBeat";
 import { parseJsonBody } from "@/server/http";
 
 const rollSchema = z.object({
@@ -48,6 +53,9 @@ export async function POST(
     }
     if (err instanceof CampaignNotFoundError) {
       return Response.json({ error: "campaign_not_found" }, { status: 404 });
+    }
+    if (err instanceof MonthlyCapExceededError) {
+      return Response.json({ error: "monthly_cap_exceeded", message: err.message }, { status: 402 });
     }
     return Response.json(
       { error: "beat_generation_failed", message: (err as Error).message },
