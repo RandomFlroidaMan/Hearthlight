@@ -139,6 +139,49 @@ describe("buildKeepsake", () => {
     expect(text).not.toContain("DC");
     expect(text).not.toMatch(/\bheart\b/i);
   });
+
+  it("highlights a natural 20 without leaking DC or skill name", async () => {
+    const campaign = fakeCampaign();
+    campaign.scenes[1].rollResult = {
+      skill: "heart",
+      dc: 12,
+      raw: 20,
+      modifier: 2,
+      total: 22,
+      success: true,
+      isNatural20: true,
+      isNatural1: false,
+    };
+    const bytes = await buildKeepsake(campaign);
+    const text = await extractText(bytes);
+    expect(text).toContain("perfect roll");
+    expect(text).not.toContain("DC");
+    expect(text).not.toMatch(/\bheart\b/i);
+  });
+
+  it("highlights a natural 1 with a gentler note", async () => {
+    const campaign = fakeCampaign();
+    campaign.scenes[1].rollResult = {
+      skill: "might",
+      dc: 8,
+      raw: 1,
+      modifier: 1,
+      total: 2,
+      success: false,
+      isNatural20: false,
+      isNatural1: true,
+    };
+    const bytes = await buildKeepsake(campaign);
+    const text = await extractText(bytes);
+    expect(text).toContain("wobbly roll");
+  });
+
+  it("adds no highlight for an ordinary roll", async () => {
+    const bytes = await buildKeepsake(fakeCampaign());
+    const text = await extractText(bytes);
+    expect(text).not.toContain("perfect roll");
+    expect(text).not.toContain("wobbly roll");
+  });
 });
 
 describe("pickProseSize", () => {

@@ -67,3 +67,17 @@ body {
     filter: brightness(0.9);
   }
 }
+
+/* A single, high-contrast focus indicator for every interactive element,
+   so keyboard navigation is never left relying on inconsistent browser
+   defaults across the dark story/DM screens and the light preference
+   pages. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
+}

@@ -111,6 +111,7 @@ export function PreferencesForm({
             <button
               onClick={() => toggle(field)}
               disabled={saving === field.key}
+              aria-label={`${field.label}: ${isOn ? "on" : "off"}`}
               className={`w-16 shrink-0 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50 ${
                 isOn ? "bg-zinc-50 text-zinc-950" : "border border-zinc-700 text-zinc-400"
               }`}
@@ -137,6 +138,7 @@ export function PreferencesForm({
             value={capDraft}
             onChange={(e) => setCapDraft(e.target.value)}
             placeholder="No cap"
+            aria-label="Monthly spending cap in dollars"
             className="w-32 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-50"
           />
           <button

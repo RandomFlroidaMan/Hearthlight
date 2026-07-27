@@ -76,8 +76,8 @@ export function StoryScreenView({
   // Every scene change — this screen's own action, the DM's action, or a
   // reconnect resync — (re)plays narration and switches ambience to match.
   useEffect(() => {
-    engine.playNarration(scene.narrationPath ? publicAudioUrl(scene.narrationPath) : null);
-  }, [engine, scene.narrationPath]);
+    engine.playNarration(scene.narrationPath ? publicAudioUrl(scene.narrationPath) : null, scene.prose);
+  }, [engine, scene.narrationPath, scene.prose]);
 
   useEffect(() => {
     const track = scene.ambientTrack;
@@ -124,6 +124,10 @@ export function StoryScreenView({
     choose(index);
   }
 
+  function replayNarration() {
+    engine.playNarration(scene.narrationPath ? publicAudioUrl(scene.narrationPath) : null, scene.prose);
+  }
+
   function toggleMute(key: keyof MuteFlags, current: boolean, setter: (v: boolean) => void) {
     const next = !current;
     setter(next);
@@ -140,6 +144,14 @@ export function StoryScreenView({
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-50">
       <div className="flex justify-end gap-2 bg-zinc-950 px-4 pt-3">
+        <button
+          onClick={replayNarration}
+          disabled={narrationMuted}
+          aria-label="Replay narration"
+          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          &#8635; Replay
+        </button>
         <button
           onClick={() => toggleMute("narrationMuted", narrationMuted, setNarrationMuted)}
           className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:text-zinc-200"

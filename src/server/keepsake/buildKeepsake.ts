@@ -36,6 +36,21 @@ const PROSE_SIZE_CANDIDATES = [15, 14, 13, 12, 11, 10, 9];
 
 const INK = rgb(0.15, 0.1, 0.05);
 const INK_SOFT = rgb(0.4, 0.32, 0.22);
+const GOLD = rgb(0.65, 0.48, 0.08);
+
+/** A scene's `rollResult` is untyped JSON at the DB layer (skill/DC/raw
+ * numbers live in there too, but those never surface here — the keepsake
+ * only ever borrows the two boolean flags to celebrate a natural 20 or a
+ * natural 1, the same "moment of delight" the story screen already marks
+ * with its own sound effect. No DC, skill name, or roll number appears in
+ * the output. */
+function rollHighlight(rollResult: unknown): string | null {
+  if (!rollResult || typeof rollResult !== "object") return null;
+  const r = rollResult as Record<string, unknown>;
+  if (r.isNatural20 === true) return "⭐ A perfect roll!";
+  if (r.isNatural1 === true) return "A wobbly roll, but the story went on!";
+  return null;
+}
 
 const FONTS_DIR = path.join(process.cwd(), "src", "server", "keepsake", "fonts");
 
@@ -197,6 +212,20 @@ export async function buildKeepsake(campaign: KeepsakeCampaign): Promise<Uint8Ar
         size: 12,
         font: regular,
         color: INK_SOFT,
+        maxWidth: TEXT_CONTENT_WIDTH,
+      });
+      textY -= CHOICE_TEXT_HEIGHT;
+      proseAvailableHeight -= CHOICE_TEXT_HEIGHT;
+    }
+
+    const highlight = rollHighlight(scene.rollResult);
+    if (highlight) {
+      page.drawText(highlight, {
+        x: MARGIN,
+        y: textY,
+        size: 12,
+        font: bold,
+        color: GOLD,
         maxWidth: TEXT_CONTENT_WIDTH,
       });
       textY -= CHOICE_TEXT_HEIGHT;

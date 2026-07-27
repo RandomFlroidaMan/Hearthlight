@@ -234,6 +234,7 @@ export function CampaignPlayView({
             value={proseDraft}
             onChange={(e) => setProseDraft(e.target.value)}
             rows={3}
+            aria-label="Edit scene prose"
             className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-lg"
           />
           <div className="flex gap-2">
@@ -307,6 +308,7 @@ export function CampaignPlayView({
             <select
               value={rollMode}
               onChange={(e) => setRollMode(e.target.value as RollMode)}
+              aria-label="Roll mode"
               className="w-fit rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
             >
               <option value="normal">Normal</option>
@@ -323,6 +325,7 @@ export function CampaignPlayView({
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
               placeholder="d20"
+              aria-label="First d20 roll"
               className="w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
             />
             {rollMode !== "normal" && (
@@ -333,6 +336,7 @@ export function CampaignPlayView({
                 value={raw2}
                 onChange={(e) => setRaw2(e.target.value)}
                 placeholder="d20 #2"
+                aria-label="Second d20 roll"
                 className="w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
               />
             )}
@@ -405,6 +409,7 @@ export function CampaignPlayView({
             value={direction}
             onChange={(e) => setDirection(e.target.value)}
             placeholder="Inject a direction (e.g. bring back the fox)"
+            aria-label="Inject a story direction"
             className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
           />
           <button

@@ -36,6 +36,7 @@ export function RoomCodeJoinForm() {
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
         placeholder="ROOM CODE"
+        aria-label="Room code"
         maxLength={4}
         autoFocus
         autoCapitalize="characters"

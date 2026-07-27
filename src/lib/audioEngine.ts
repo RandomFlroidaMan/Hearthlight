@@ -29,6 +29,7 @@ export class AudioEngine {
   private currentAmbience: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
   private currentAmbienceKey: string | null = null;
   private currentNarrationSource: AudioBufferSourceNode | null = null;
+  private speakingFallback = false;
   private mute: MuteState;
 
   constructor(initialMute: MuteState) {
@@ -76,12 +77,13 @@ export class AudioEngine {
 
   setMute(mute: MuteState): void {
     this.mute = mute;
+    if (mute.narrationMuted) this.stopSpeechFallback();
     if (!this.ctx || !this.narrationBus || !this.ambienceBus || !this.effectsBus) return;
     const now = this.ctx.currentTime;
     this.narrationBus.gain.setTargetAtTime(mute.narrationMuted ? 0 : 1, now, MUTE_RAMP_TIME_CONSTANT);
     const ambienceTarget = mute.ambienceMuted
       ? 0
-      : this.currentNarrationSource
+      : this.currentNarrationSource || this.speakingFallback
         ? AMBIENCE_DUCKED_GAIN
         : AMBIENCE_GAIN;
     this.ambienceBus.gain.setTargetAtTime(ambienceTarget, now, MUTE_RAMP_TIME_CONSTANT);
@@ -95,15 +97,23 @@ export class AudioEngine {
     this.ambienceBus.gain.linearRampToValueAtTime(target, this.ctx.currentTime + DUCK_RAMP_SECONDS);
   }
 
-  async playNarration(url: string | null): Promise<void> {
+  /** Plays generated narration audio at `url`, or — when generation failed
+   * or was skipped (a spend cap, a transient TTS error) — falls back to the
+   * browser's own speechSynthesis reading `fallbackText` aloud, so a scene
+   * is never silently voiceless. `url` wins whenever it's present. */
+  async playNarration(url: string | null, fallbackText?: string): Promise<void> {
     try {
       this.currentNarrationSource?.stop();
     } catch {
       // Already stopped/ended — fine.
     }
     this.currentNarrationSource = null;
+    this.stopSpeechFallback();
     this.duckAmbience(false);
-    if (!url) return;
+    if (!url) {
+      if (fallbackText) this.speakFallback(fallbackText);
+      return;
+    }
 
     const ctx = this.ensureContext();
     const buffer = await this.loadBuffer(url);
@@ -185,6 +195,28 @@ export class AudioEngine {
     source.start();
   }
 
+  private speakFallback(text: string): void {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (this.mute.narrationMuted) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onstart = () => {
+      this.speakingFallback = true;
+      this.duckAmbience(true);
+    };
+    utterance.onend = utterance.onerror = () => {
+      this.speakingFallback = false;
+      this.duckAmbience(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  private stopSpeechFallback(): void {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    this.speakingFallback = false;
+  }
+
   dispose(): void {
     try {
       this.currentNarrationSource?.stop();
@@ -196,6 +228,7 @@ export class AudioEngine {
     } catch {
       // Fine.
     }
+    this.stopSpeechFallback();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.narrationBus = null;
