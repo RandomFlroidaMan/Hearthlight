@@ -27,6 +27,7 @@ export default async function StoryCampaignPage({
   return (
     <StoryScreenView
       campaignId={campaign.id}
+      roomCode={campaign.roomCode}
       initialScene={{
         id: latestScene.id,
         prose: latestScene.prose,

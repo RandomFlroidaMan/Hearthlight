@@ -1,0 +1,26 @@
+import { db } from "@/server/db";
+
+/** Used by clients to refetch current state after a WebSocket reconnect —
+ * a dropped connection must never leave a screen stuck on stale data. */
+export async function GET(
+  _request: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const { id } = await ctx.params;
+
+  const campaign = await db.campaign.findUnique({
+    where: { id },
+    include: { scenes: { orderBy: { order: "desc" }, take: 1 } },
+  });
+
+  if (!campaign) {
+    return Response.json({ error: "campaign_not_found" }, { status: 404 });
+  }
+
+  const latestScene = campaign.scenes[0];
+  if (!latestScene) {
+    return Response.json({ error: "campaign_has_no_scenes" }, { status: 500 });
+  }
+
+  return Response.json({ campaign, scene: latestScene });
+}

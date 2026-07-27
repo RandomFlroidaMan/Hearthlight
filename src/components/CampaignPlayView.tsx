@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useCampaignSync } from "@/lib/useCampaignSync";
 // Type-only import — erased at compile time, so this does not pull
 // server-side runtime code (or the OpenAI/Prisma clients it touches) into
 // the client bundle. Runtime values from src/server must never be imported
@@ -65,12 +66,14 @@ type Skills = { might: number; magic: number; cunning: number; heart: number };
 
 export function CampaignPlayView({
   campaignId,
+  roomCode,
   initialScene,
   readingAge,
   skills,
   dmFudgeEnabled,
 }: {
   campaignId: string;
+  roomCode: string;
   initialScene: SceneData;
   readingAge: number;
   skills: Skills;
@@ -90,6 +93,28 @@ export function CampaignPlayView({
 
   const complexity = previewComplexity(readingAge);
 
+  /** Applies a new scene whether it came from this screen's own POST/PATCH
+   * response or a WebSocket broadcast triggered by the other screen. Resets
+   * in-progress roll/edit state only when it's actually a different scene —
+   * a fudge/roll panel referencing the old scene's choices would otherwise
+   * dangle against the new one's. */
+  function applySceneUpdate(newScene: SceneData) {
+    setScene((prev) => {
+      if (newScene.id !== prev.id) {
+        setPendingChoiceIndex(null);
+        setRaw("");
+        setRaw2("");
+        setRollMode("normal");
+        setLastResult(null);
+        setEditingProse(false);
+      }
+      setProseDraft(newScene.prose);
+      return newScene;
+    });
+  }
+
+  useCampaignSync<SceneData>({ campaignId, roomCode, onScene: applySceneUpdate });
+
   async function postBeat(body: Record<string, unknown>) {
     setBusy(true);
     setError(null);
@@ -107,12 +132,7 @@ export function CampaignPlayView({
     }
 
     const json = await res.json();
-    setScene(json.scene);
-    setProseDraft(json.scene.prose);
-    setPendingChoiceIndex(null);
-    setRaw("");
-    setRaw2("");
-    setRollMode("normal");
+    applySceneUpdate(json.scene);
   }
 
   async function saveProse() {
@@ -131,7 +151,7 @@ export function CampaignPlayView({
     }
 
     const json = await res.json();
-    setScene(json.scene);
+    applySceneUpdate(json.scene);
     setEditingProse(false);
   }
 
@@ -186,6 +206,9 @@ export function CampaignPlayView({
         <span className="rounded-full border border-zinc-700 px-2 py-1">act: {scene.act}</span>
         <span>scene {scene.order}</span>
         {scene.isEnding && <span className="text-amber-400">ending</span>}
+        <span className="ml-auto rounded-full border border-amber-700 bg-amber-950/40 px-3 py-1 font-mono text-amber-300">
+          Room code: {roomCode}
+        </span>
       </div>
 
       {scene.imagePath && (

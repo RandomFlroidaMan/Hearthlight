@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/server/db";
 import { generateBeat } from "@/server/storyEngine/generateBeat";
+import { generateUniqueRoomCode } from "@/server/sync/roomCode";
 
 const createCampaignSchema = z.object({
   characterId: z.string(),
@@ -24,8 +25,9 @@ export async function POST(request: Request) {
   if (!character) return Response.json({ error: "character_not_found" }, { status: 404 });
   if (!worldSetting) return Response.json({ error: "world_setting_not_found" }, { status: 404 });
 
+  const roomCode = await generateUniqueRoomCode();
   const campaign = await db.campaign.create({
-    data: { characterId, worldSettingId, tone: tone ?? null },
+    data: { characterId, worldSettingId, tone: tone ?? null, roomCode },
   });
 
   const firstScene = await generateBeat({ campaignId: campaign.id });

@@ -67,6 +67,7 @@ export default async function CampaignPage({
       </h1>
       <CampaignPlayView
         campaignId={campaign.id}
+        roomCode={campaign.roomCode}
         initialScene={{
           id: latestScene.id,
           order: latestScene.order,

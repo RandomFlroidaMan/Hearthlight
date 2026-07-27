@@ -71,6 +71,7 @@ model Campaign {
   character         Character @relation(fields: [characterId], references: [id])
   worldSettingId    String
   worldSetting      WorldSetting @relation(fields: [worldSettingId], references: [id])
+  roomCode          String    @unique // short pairing code for the story screen to join this campaign's live room
   act               String    @default("setup") // setup | journey | complication | climax | resolution
   tone              String?
   digestSummary     String? // running summary of older scenes for long-context coherence

@@ -1,16 +1,17 @@
+import { RoomCodeJoinForm } from "@/components/RoomCodeJoinForm";
+
 /**
- * Story screen — art and choices only, legible from across a room. No
- * mechanics, no spoilers. Real content lands in later phases; this proves
- * the App Router split renders.
+ * Story screen landing — enter the room code shown on the DM screen to
+ * join that campaign's live session.
  */
 export default function StoryScreen() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-950 p-8 text-center text-zinc-50">
-      <h1 className="text-2xl font-semibold">Story screen</h1>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-zinc-950 p-8 text-center text-zinc-50">
+      <h1 className="text-2xl font-semibold">Join a story</h1>
       <p className="max-w-md text-zinc-400">
-        Full-bleed illustration and choices land here starting in Phase 3
-        (art pipeline) and Phase 4 (story engine).
+        Enter the room code from the DM screen to follow along here.
       </p>
+      <RoomCodeJoinForm />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useCampaignSync } from "@/lib/useCampaignSync";
 import type { Choice } from "@/server/storyEngine/beatSchema";
 
 function publicImageUrl(filename: string): string {
@@ -18,21 +19,32 @@ type SceneData = {
 
 /**
  * The public story screen: full-bleed art, prose, and tappable choices only
- * — no mechanics, no DM notes, no DC/skill labels. Choices are functional
- * (they call the same beat-generation endpoint the DM screen uses), but
- * there's no live push between separate DM/story devices yet — that's
- * Phase 6. On one device, this is already a playable loop.
+ * — no mechanics, no DM notes, no DC/skill labels. Stays live with the DM
+ * screen via useCampaignSync — either screen can drive, per the brief.
  */
 export function StoryScreenView({
   campaignId,
+  roomCode,
   initialScene,
 }: {
   campaignId: string;
+  roomCode: string;
   initialScene: SceneData;
 }) {
   const [scene, setScene] = useState(initialScene);
   const [loading, setLoading] = useState(false);
   const [pendingChoiceIndex, setPendingChoiceIndex] = useState<number | null>(null);
+
+  function applySceneUpdate(newScene: SceneData) {
+    setScene((prev) => {
+      if (newScene.id !== prev.id) {
+        setPendingChoiceIndex(null);
+      }
+      return newScene;
+    });
+  }
+
+  useCampaignSync<SceneData>({ campaignId, roomCode, onScene: applySceneUpdate });
 
   async function choose(index: number, raw?: number) {
     setLoading(true);
@@ -45,7 +57,7 @@ export function StoryScreenView({
     setPendingChoiceIndex(null);
     if (res.ok) {
       const json = await res.json();
-      setScene(json.scene);
+      applySceneUpdate(json.scene);
     }
   }
 

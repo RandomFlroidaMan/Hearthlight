@@ -12,6 +12,7 @@ import { beatSchema, type Beat, type Choice } from "./beatSchema";
 import { planNextAct, type Act } from "./actPlanner";
 import { updateDigestIfNeeded, KEEP_RECENT_SCENES } from "./digest";
 import { complexityForAge, resolveRoll, type RollMode } from "@/server/dice/rollResolution";
+import { transport } from "@/server/sync/transport";
 import type { Campaign, Character, Scene, WorldSetting } from "@/generated/prisma/client";
 
 const MAX_GENERATION_ATTEMPTS = 3;
@@ -314,6 +315,8 @@ export async function generateBeat(params: {
   });
 
   await updateDigestIfNeeded(campaign.id);
+
+  transport.broadcast(campaign.roomCode, { type: "scene", scene });
 
   return scene;
 }

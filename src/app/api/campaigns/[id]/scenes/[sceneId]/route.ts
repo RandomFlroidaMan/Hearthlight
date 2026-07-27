@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db } from "@/server/db";
+import { transport } from "@/server/sync/transport";
 
 const editSceneSchema = z.object({
   prose: z.string().min(1),
@@ -22,10 +23,14 @@ export async function PATCH(
     return Response.json({ error: "scene_not_found" }, { status: 404 });
   }
 
+  const campaign = await db.campaign.findUniqueOrThrow({ where: { id } });
+
   const updated = await db.scene.update({
     where: { id: sceneId },
     data: { prose: parsed.data.prose },
   });
+
+  transport.broadcast(campaign.roomCode, { type: "scene", scene: updated });
 
   return Response.json({ scene: updated });
 }
