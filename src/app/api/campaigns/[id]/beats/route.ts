@@ -38,8 +38,8 @@ export async function POST(
   }
 
   try {
-    const scene = await generateBeat({ campaignId: id, ...parsed.data });
-    return Response.json({ scene });
+    const { scene, outcome } = await generateBeat({ campaignId: id, ...parsed.data });
+    return Response.json({ scene, outcome });
   } catch (err) {
     if (err instanceof RollRequiredError) {
       return Response.json({ error: "roll_required", message: err.message }, { status: 400 });

@@ -100,6 +100,7 @@ model Scene {
   choices     Json // Choice[] (text, optional skill+dc, outcome text)
   rollResult  Json? // { skill, dc, raw, modifier, total, success }
   ambientTrack String?
+  narrationPath String? // filename under /data/audio for this scene's TTS narration
   isEnding    Boolean  @default(false)
   createdAt   DateTime @default(now())
 

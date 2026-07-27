@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { openai } from "@/server/openaiClient";
 import { modelConfig } from "@/server/config/models";
 import { generateSceneImage } from "@/server/art/generateSceneImage";
+import { generateNarration } from "@/server/audio/generateNarration";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { findClass } from "@/lib/dnd";
 import { toStringArray } from "@/lib/json";
@@ -20,6 +21,16 @@ const MAX_GENERATION_ATTEMPTS = 3;
 /** A skill-check choice was picked without a roll or a DM-fudge override —
  * a 400, not a generation failure, so the route reports it distinctly. */
 export class RollRequiredError extends Error {}
+
+/** Just enough about what happened to cue a sound effect on the story
+ * screen — never the DC/skill/modifier numbers themselves, which stay
+ * DM-only per the "no mechanics on the story screen" rule. */
+export interface BeatOutcome {
+  hadCheck: boolean;
+  success: boolean;
+  isNatural20: boolean;
+  itemAwarded: boolean;
+}
 
 const READING_AGE_GUIDANCE: Record<number, string> = {
   3: "Write for a 3-year-old: very short sentences (5-8 words), concrete nouns, only words a 3-year-old knows. One clear choice matters more than nuance.",
@@ -39,8 +50,8 @@ const SAFETY_RULES = `SAFETY RULES — follow these exactly, no exceptions:
 const ACT_GUIDANCE: Record<Act, string> = {
   setup: "This is the opening beat. Introduce the world and give a low-stakes first choice.",
   journey: "Middle of the adventure. Exploration, meeting friendly or silly characters, building toward something.",
-  complication: "A small fantastical obstacle appears (a silly monster, a puzzle). Raise stakes gently, not scarily.",
-  climax: "The biggest moment of the adventure — a bigger (but still friendly-at-heart) fantastical creature or challenge to overcome.",
+  complication: "A small fantastical obstacle appears (a silly monster, a puzzle). Raise stakes gently, not scarily. The \"danger\" ambient track usually fits here.",
+  climax: "The biggest moment of the adventure — a bigger (but still friendly-at-heart) fantastical creature or challenge to overcome. The \"danger\" ambient track usually fits here.",
   resolution: "Wrap up warmly. This should be (or lead directly to) the ending — set isEnding to true.",
 };
 
@@ -178,7 +189,7 @@ export async function generateBeat(params: {
   direction?: string | null;
   forceEnding?: boolean;
   regenerate?: boolean;
-}): Promise<Scene> {
+}): Promise<{ scene: Scene; outcome: BeatOutcome }> {
   const campaign: Campaign & { character: Character; worldSetting: WorldSetting } =
     await db.campaign.findUniqueOrThrow({
       where: { id: params.campaignId },
@@ -205,8 +216,11 @@ export async function generateBeat(params: {
 
   let chosenChoiceSucceeded = true;
   let chosenChoiceOutcomeHint: string | null = null;
+  let hadCheck = false;
+  let isNatural20 = false;
 
   if (chosenChoice?.skill && chosenChoice.dc !== null) {
+    hadCheck = true;
     if (params.fudge) {
       chosenChoiceSucceeded = params.fudge === "success";
 
@@ -242,6 +256,7 @@ export async function generateBeat(params: {
       });
 
       chosenChoiceSucceeded = rollResult.success;
+      isNatural20 = rollResult.isNatural20;
 
       if (latestScene) {
         await db.scene.update({
@@ -273,12 +288,18 @@ export async function generateBeat(params: {
     forceEnding: params.forceEnding ?? false,
   });
 
-  const { filename: imageFilename } = await generateSceneImage({
-    character: campaign.character,
-    worldSetting: campaign.worldSetting,
-    sceneDescription: beat.imagePrompt,
-    campaignId: campaign.id,
-  });
+  // Independent of each other — both only depend on the already-validated
+  // beat text — so they run concurrently rather than adding their latency
+  // sequentially.
+  const [{ filename: imageFilename }, narrationFilename] = await Promise.all([
+    generateSceneImage({
+      character: campaign.character,
+      worldSetting: campaign.worldSetting,
+      sceneDescription: beat.imagePrompt,
+      campaignId: campaign.id,
+    }),
+    generateNarration({ prose: beat.prose, campaignId: campaign.id }),
+  ]);
 
   const sceneData = {
     act,
@@ -288,6 +309,7 @@ export async function generateBeat(params: {
     dmNotes: beat.dmNotes,
     choices: beat.choices,
     ambientTrack: beat.ambientTrack,
+    narrationPath: narrationFilename,
     isEnding: beat.isEnding,
   };
 
@@ -318,5 +340,13 @@ export async function generateBeat(params: {
 
   transport.broadcast(campaign.roomCode, { type: "scene", scene });
 
-  return scene;
+  return {
+    scene,
+    outcome: {
+      hadCheck,
+      success: chosenChoiceSucceeded,
+      isNatural20,
+      itemAwarded: beat.itemReward !== null,
+    },
+  };
 }

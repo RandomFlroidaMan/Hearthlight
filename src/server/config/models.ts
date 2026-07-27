@@ -12,7 +12,11 @@
  * (`images.generate`) and reference-guided generation (`images.edit`, up to
  * 16 input images) for character/setting consistency.
  *
- * `tts` is still a placeholder — pinned for real in Phase 7.
+ * `tts` is pinned to gpt-4o-mini-tts's current dated snapshot, confirmed
+ * live in /v1/models and with a real `audio.speech.create` call (2026-07-27)
+ * — non-empty, valid MP3 bytes came back. Voice is `fable`, steered via the
+ * `instructions` field (supported on gpt-4o-mini-tts, not on tts-1/tts-1-hd)
+ * toward a warm, gentle, unhurried bedtime-storyteller read.
  */
 
 export const modelConfig = {
@@ -25,7 +29,10 @@ export const modelConfig = {
     model: process.env.HEARTHLIGHT_IMAGE_MODEL || "gpt-image-2-2026-04-21",
   },
   tts: {
-    model: process.env.HEARTHLIGHT_TTS_MODEL || "TBD-verify-in-phase-7",
+    model: process.env.HEARTHLIGHT_TTS_MODEL || "gpt-4o-mini-tts-2025-12-15",
+    voice: "fable" as const,
+    instructions:
+      "Warm, gentle, unhurried bedtime storyteller reading to a young child. Cozy and cheerful, never rushed, never flat.",
   },
 } as const;
 

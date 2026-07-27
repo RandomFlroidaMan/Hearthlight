@@ -13,7 +13,13 @@ import { z } from "zod";
 export const skillNames = ["might", "magic", "cunning", "heart"] as const;
 export type SkillName = (typeof skillNames)[number];
 
-export const ambientTracks = ["forest", "cave", "coast", "night", "village", "none"] as const;
+export const ambientTracks = ["forest", "cave", "coast", "night", "village", "danger", "none"] as const;
+
+const AMBIENT_TRACK_DESCRIPTION =
+  "Background mood tag for this scene. forest/cave/coast/night/village: calm ambience matching the setting. " +
+  "danger: for complications or climaxes with a fantastical creature — upbeat, exciting, chase-scene energy, " +
+  "like a Saturday-morning-cartoon action cue. NEVER tense, ominous, or scary — this app is never frightening. " +
+  "none: no ambience.";
 
 export const choiceSchema = z.object({
   text: z.string().min(1),
@@ -39,7 +45,7 @@ export const beatSchema = z.object({
   dmNotes: z.string(),
   /** Fed directly into generateSceneImage as the scene description. */
   imagePrompt: z.string().min(1),
-  ambientTrack: z.enum(ambientTracks).nullable(),
+  ambientTrack: z.enum(ambientTracks).nullable().describe(AMBIENT_TRACK_DESCRIPTION),
   itemReward: itemRewardSchema.nullable(),
   isEnding: z.boolean(),
 });

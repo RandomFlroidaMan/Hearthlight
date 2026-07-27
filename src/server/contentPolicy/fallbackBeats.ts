@@ -105,7 +105,7 @@ export const FALLBACK_BEATS: Record<string, Beat> = {
     ],
     dmNotes: "The troll is lonely, not dangerous. Every outcome should end warmly.",
     imagePrompt: "A big mossy troll guarding a treasure chest, looking lonely rather than fierce.",
-    ambientTrack: "forest",
+    ambientTrack: "danger",
     itemReward: { name: "Mossy Trinket", description: "A small charm the troll was keeping safe." },
     isEnding: false,
   },

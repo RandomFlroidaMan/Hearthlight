@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     data: { characterId, worldSettingId, tone: tone ?? null, roomCode },
   });
 
-  const firstScene = await generateBeat({ campaignId: campaign.id });
+  const { scene: firstScene } = await generateBeat({ campaignId: campaign.id });
 
   return Response.json({ campaign, firstScene }, { status: 201 });
 }
