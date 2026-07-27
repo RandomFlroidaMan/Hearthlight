@@ -101,6 +101,7 @@ model Scene {
   rollResult  Json? // { skill, dc, raw, modifier, total, success }
   ambientTrack String?
   narrationPath String? // filename under /data/audio for this scene's TTS narration
+  choiceText  String? // text of the choice that led here, null for the opening scene — used by the keepsake export
   isEnding    Boolean  @default(false)
   createdAt   DateTime @default(now())
 

@@ -386,6 +386,13 @@ export function CampaignPlayView({
             Force an ending
           </button>
         )}
+        <a
+          href={`/api/campaigns/${campaignId}/keepsake`}
+          download
+          className="rounded-full border border-amber-700 px-4 py-2 text-sm text-amber-300 hover:bg-amber-950/30"
+        >
+          Download keepsake
+        </a>
         <div className="flex flex-1 gap-2">
           <input
             value={direction}

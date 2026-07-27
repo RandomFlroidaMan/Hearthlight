@@ -310,6 +310,7 @@ export async function generateBeat(params: {
     choices: beat.choices,
     ambientTrack: beat.ambientTrack,
     narrationPath: narrationFilename,
+    choiceText: chosenChoice?.text,
     isEnding: beat.isEnding,
   };
 
