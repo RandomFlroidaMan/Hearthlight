@@ -22,6 +22,12 @@ const MAX_GENERATION_ATTEMPTS = 3;
  * a 400, not a generation failure, so the route reports it distinctly. */
 export class RollRequiredError extends Error {}
 
+/** campaignId didn't match any row — a 404, not a 502. Thrown instead of
+ * letting Prisma's findUniqueOrThrow reject with its own error (which
+ * includes internal file paths and query details unsuitable to hand back
+ * to a client). */
+export class CampaignNotFoundError extends Error {}
+
 /** Just enough about what happened to cue a sound effect on the story
  * screen — never the DC/skill/modifier numbers themselves, which stay
  * DM-only per the "no mechanics on the story screen" rule. */
@@ -190,11 +196,14 @@ export async function generateBeat(params: {
   forceEnding?: boolean;
   regenerate?: boolean;
 }): Promise<{ scene: Scene; outcome: BeatOutcome }> {
-  const campaign: Campaign & { character: Character; worldSetting: WorldSetting } =
-    await db.campaign.findUniqueOrThrow({
+  const campaign: (Campaign & { character: Character; worldSetting: WorldSetting }) | null =
+    await db.campaign.findUnique({
       where: { id: params.campaignId },
       include: { character: true, worldSetting: true },
     });
+  if (!campaign) {
+    throw new CampaignNotFoundError(`No campaign found with id "${params.campaignId}".`);
+  }
 
   const scenes = await db.scene.findMany({
     where: { campaignId: params.campaignId },

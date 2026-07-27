@@ -3,10 +3,13 @@ import { parseFormFieldPdf } from "@/server/sheets/formFieldParser";
 import { parseTextLayerPdf } from "@/server/sheets/textLayerParser";
 import { parseSheetImage } from "@/server/sheets/visionParser";
 import { rasterizeFirstPage } from "@/server/sheets/rasterizePdf";
+import { parseFormData } from "@/server/http";
 import type { SheetKind } from "@/server/sheets/types";
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
+  const formDataResult = await parseFormData(request);
+  if (!formDataResult.ok) return formDataResult.response;
+  const formData = formDataResult.data;
   const file = formData.get("file");
 
   if (!(file instanceof File)) {

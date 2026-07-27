@@ -1,5 +1,6 @@
 import { createCharacterSchema } from "@/lib/characterSchema";
 import { db } from "@/server/db";
+import { parseJsonBody } from "@/server/http";
 
 export async function GET() {
   const characters = await db.character.findMany({
@@ -9,8 +10,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = createCharacterSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = createCharacterSchema.safeParse(bodyResult.data);
 
   if (!parsed.success) {
     return Response.json(

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { db } from "@/server/db";
+import { parseJsonBody } from "@/server/http";
 
 const SETTINGS_ID = "default";
 
@@ -31,8 +32,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const body = await request.json();
-  const parsed = patchSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = patchSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }

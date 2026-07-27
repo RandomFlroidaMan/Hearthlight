@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { generateBeat, RollRequiredError } from "@/server/storyEngine/generateBeat";
+import { generateBeat, CampaignNotFoundError, RollRequiredError } from "@/server/storyEngine/generateBeat";
+import { parseJsonBody } from "@/server/http";
 
 const rollSchema = z.object({
   raw: z.number().int().min(1).max(20),
@@ -31,8 +32,9 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const body = await request.json();
-  const parsed = advanceSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = advanceSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }
@@ -43,6 +45,9 @@ export async function POST(
   } catch (err) {
     if (err instanceof RollRequiredError) {
       return Response.json({ error: "roll_required", message: err.message }, { status: 400 });
+    }
+    if (err instanceof CampaignNotFoundError) {
+      return Response.json({ error: "campaign_not_found" }, { status: 404 });
     }
     return Response.json(
       { error: "beat_generation_failed", message: (err as Error).message },

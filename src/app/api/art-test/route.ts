@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { generateCharacterPortrait } from "@/server/art/generatePortrait";
 import { generateSceneImage } from "@/server/art/generateSceneImage";
+import { parseJsonBody } from "@/server/http";
 
 const requestSchema = z.object({
   characterId: z.string(),
@@ -16,8 +17,9 @@ const requestSchema = z.object({
  * part of the real game loop — that's Phase 4.
  */
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = requestSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = requestSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }

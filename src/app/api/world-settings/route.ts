@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
 import { saveUploadedImage } from "@/server/art/imageStore";
+import { parseFormData } from "@/server/http";
 
 const MAX_REFERENCE_IMAGES = 5;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20MB per image
@@ -12,7 +13,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
+  const formDataResult = await parseFormData(request);
+  if (!formDataResult.ok) return formDataResult.response;
+  const formData = formDataResult.data;
   const name = formData.get("name");
   const description = formData.get("description");
   const paletteKey = formData.get("paletteKey");

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { generateBeat } from "@/server/storyEngine/generateBeat";
 import { generateUniqueRoomCode } from "@/server/sync/roomCode";
+import { parseJsonBody } from "@/server/http";
 
 const createCampaignSchema = z.object({
   characterId: z.string(),
@@ -10,8 +11,9 @@ const createCampaignSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = createCampaignSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = createCampaignSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }

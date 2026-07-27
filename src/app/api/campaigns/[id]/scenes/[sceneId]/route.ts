@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/server/db";
 import { transport } from "@/server/sync/transport";
+import { parseJsonBody } from "@/server/http";
 
 const editSceneSchema = z.object({
   prose: z.string().min(1),
@@ -12,8 +13,9 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string; sceneId: string }> },
 ) {
   const { id, sceneId } = await ctx.params;
-  const body = await request.json();
-  const parsed = editSceneSchema.safeParse(body);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.ok) return bodyResult.response;
+  const parsed = editSceneSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }
