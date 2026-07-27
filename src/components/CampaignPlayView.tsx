@@ -217,6 +217,7 @@ export function CampaignPlayView({
           alt="Current scene"
           width={768}
           height={432}
+          priority
           className={`rounded-md object-cover ${busy ? "image-breathe" : ""}`}
         />
       )}
