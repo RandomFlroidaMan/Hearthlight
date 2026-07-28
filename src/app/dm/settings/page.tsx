@@ -13,6 +13,10 @@ export default async function WorldSettingLibraryPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8 text-zinc-50">
+      <Link href="/dm" className="text-sm text-zinc-400 hover:text-zinc-200">
+        ← DM screen
+      </Link>
+
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">World settings</h1>
         <Link

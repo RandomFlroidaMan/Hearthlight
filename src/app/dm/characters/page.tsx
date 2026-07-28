@@ -16,6 +16,10 @@ export default async function CharacterLibraryPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8 text-zinc-50">
+      <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
+        ← Home
+      </Link>
+
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Character library</h1>
         <div className="flex gap-3">
@@ -33,6 +37,15 @@ export default async function CharacterLibraryPage() {
           </Link>
         </div>
       </div>
+
+      {characters.length > 0 && (
+        <Link
+          href="/play/campaigns/new"
+          className="w-fit rounded-full bg-amber-600 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-500"
+        >
+          Play together →
+        </Link>
+      )}
 
       {characters.length === 0 ? (
         <p className="text-sm text-zinc-400">
