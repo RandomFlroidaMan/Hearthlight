@@ -10,8 +10,19 @@ import type { BeatContent } from "./generateBeatContent";
  */
 type CacheEntry = Promise<BeatContent | null>;
 
-function keyFor(sceneId: string, choiceIndex: number, assumedSuccess: boolean): string {
-  return `${sceneId}:${choiceIndex}:${assumedSuccess}`;
+/** Sorted so join order never affects the key — only *which* characters
+ * are present matters. */
+function partyKey(characterIds: string[]): string {
+  return [...characterIds].sort().join(",");
+}
+
+/** Includes the party's character ids so a mid-campaign join (see
+ * /api/campaigns/[id]/join) can never cause a beat prefetched for the old
+ * party to be served for the new one — a stale cache entry simply misses
+ * and falls back to a fresh generation instead of silently omitting
+ * whoever just joined. */
+function keyFor(sceneId: string, choiceIndex: number, assumedSuccess: boolean, characterIds: string[]): string {
+  return `${sceneId}:${choiceIndex}:${assumedSuccess}:${partyKey(characterIds)}`;
 }
 
 const globalForPrefetch = globalThis as unknown as {
@@ -24,12 +35,23 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrefetch.beatPrefetchCache = cache;
 }
 
-export function setPrefetch(sceneId: string, choiceIndex: number, assumedSuccess: boolean, entry: CacheEntry): void {
-  cache.set(keyFor(sceneId, choiceIndex, assumedSuccess), entry);
+export function setPrefetch(
+  sceneId: string,
+  choiceIndex: number,
+  assumedSuccess: boolean,
+  characterIds: string[],
+  entry: CacheEntry,
+): void {
+  cache.set(keyFor(sceneId, choiceIndex, assumedSuccess, characterIds), entry);
 }
 
-export function getPrefetch(sceneId: string, choiceIndex: number, assumedSuccess: boolean): CacheEntry | undefined {
-  return cache.get(keyFor(sceneId, choiceIndex, assumedSuccess));
+export function getPrefetch(
+  sceneId: string,
+  choiceIndex: number,
+  assumedSuccess: boolean,
+  characterIds: string[],
+): CacheEntry | undefined {
+  return cache.get(keyFor(sceneId, choiceIndex, assumedSuccess, characterIds));
 }
 
 /** Called before re-seeding a scene's prefetch entries (including on

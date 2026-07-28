@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { parseJsonBody } from "@/server/http";
 import { hashCode } from "@/server/auth/password";
 import { createSession } from "@/server/auth/session";
+import { Prisma } from "@/generated/prisma/client";
 
 const registerSchema = z.object({
   bootstrapCode: z.string().min(1),
@@ -50,9 +51,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const family = await db.family.create({
-    data: { name: familyName, codeHash: hashCode(familyCode) },
-  });
+  // The findUnique check above isn't atomic with this create — two
+  // concurrent registrations for the same name can both pass it. Catching
+  // the unique-constraint violation here (rather than letting it surface
+  // as a raw 500) makes the second request land on the same friendly
+  // message the pre-check gives the common case.
+  let family;
+  try {
+    family = await db.family.create({
+      data: { name: familyName, codeHash: hashCode(familyCode) },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return Response.json(
+        { error: "family_name_taken", message: "A family with that name already exists — try logging in instead, or pick a different name." },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 
   await createSession(family.id);
 

@@ -239,7 +239,12 @@ export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ sc
     !params.direction &&
     !params.forceEnding
   ) {
-    const cached = getPrefetch(latestScene.id, params.choiceIndex, chosenChoiceSucceeded);
+    const cached = getPrefetch(
+      latestScene.id,
+      params.choiceIndex,
+      chosenChoiceSucceeded,
+      characters.map((c) => c.id),
+    );
     if (cached) {
       content = await cached;
     }

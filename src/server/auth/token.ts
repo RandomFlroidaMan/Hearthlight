@@ -9,23 +9,29 @@
 
 export const SESSION_COOKIE_NAME = "hearthlight_session";
 
-let processSecret: string | null = null;
+/** Used only when HEARTHLIGHT_SESSION_SECRET is unset. Deliberately a fixed
+ * value rather than one randomly generated per process: middleware.ts runs
+ * in a separate Edge runtime sandbox from the Node.js Route Handlers even
+ * under this app's custom server, so two independently-random fallbacks
+ * would never agree — every session would fail verification in middleware
+ * immediately after a successful login, an outright lockout with no
+ * visible error. A fixed fallback at least works consistently. It is NOT a
+ * substitute for a real secret (anyone who reads this source could forge a
+ * session cookie against a deployment that never set its own) — that's
+ * what the warning below is for. */
+const INSECURE_DEFAULT_SECRET = "hearthlight-default-secret-set-HEARTHLIGHT_SESSION_SECRET-before-real-use";
 
-/** Falls back to a secret generated once per process rather than a
- * hardcoded value — sessions just won't survive a restart/redeploy until
- * HEARTHLIGHT_SESSION_SECRET is set, which is far safer than ever
- * shipping a real secret in source. */
+let warned = false;
+
 function getSessionSecret(): string {
   if (process.env.HEARTHLIGHT_SESSION_SECRET) return process.env.HEARTHLIGHT_SESSION_SECRET;
-  if (!processSecret) {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    processSecret = toHex(bytes.buffer);
+  if (!warned) {
+    warned = true;
     console.warn(
-      "HEARTHLIGHT_SESSION_SECRET is not set — using a random per-process secret, so every family will be logged out on the next restart/redeploy. Set HEARTHLIGHT_SESSION_SECRET to keep sessions across restarts.",
+      "HEARTHLIGHT_SESSION_SECRET is not set — falling back to a fixed, publicly-known default secret so logins keep working. This means anyone who reads this app's source could forge a session cookie. Set HEARTHLIGHT_SESSION_SECRET to a real random value before relying on this for anything but local development.",
     );
   }
-  return processSecret;
+  return INSECURE_DEFAULT_SECRET;
 }
 
 function toHex(buf: ArrayBuffer): string {

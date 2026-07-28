@@ -55,6 +55,7 @@ export async function triggerPrefetch(params: {
   const act: Act = planNextAct(campaign.act as Act, scenesInCurrentAct, campaign.readingAge);
   const recentScenes = scenesIncludingCurrent.slice(-KEEP_RECENT_SCENES);
   const npcsMet = toStringArray(campaign.npcsMet);
+  const characterIds = characters.map((c) => c.id);
 
   choices.forEach((choice, choiceIndex) => {
     const ctx: BeatContext = {
@@ -78,6 +79,6 @@ export async function triggerPrefetch(params: {
       return null;
     });
 
-    setPrefetch(scene.id, choiceIndex, true, promise);
+    setPrefetch(scene.id, choiceIndex, true, characterIds, promise);
   });
 }

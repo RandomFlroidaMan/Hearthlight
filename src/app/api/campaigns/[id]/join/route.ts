@@ -35,10 +35,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
+  const uniqueCharacterIds = [...new Set(parsed.data.characterIds)];
   const characters = await db.character.findMany({
-    where: { id: { in: parsed.data.characterIds }, familyId: auth.familyId },
+    where: { id: { in: uniqueCharacterIds }, familyId: auth.familyId },
   });
-  if (characters.length !== parsed.data.characterIds.length) {
+  if (characters.length !== uniqueCharacterIds.length) {
     return Response.json({ error: "character_not_found" }, { status: 404 });
   }
 
@@ -51,6 +52,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }),
     ),
   );
+
+  // Keeps the "youngest party member" invariant honest across cross-family
+  // joins too — a younger joiner should actually simplify the prose/rolls,
+  // not leave the campaign pinned to whoever happened to start it. Only
+  // ever lowers it: an older joiner must never make an ongoing story
+  // suddenly harder for the kids already playing it.
+  const youngestJoining = Math.min(...characters.map((c) => c.readingAge));
+  if (youngestJoining < campaign.readingAge) {
+    await db.campaign.update({ where: { id: campaign.id }, data: { readingAge: youngestJoining } });
+  }
 
   transport.broadcast(campaign.roomCode, { type: "party_changed" });
 

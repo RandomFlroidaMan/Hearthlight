@@ -49,6 +49,7 @@ export default async function WorldSettingLibraryPage() {
                     {setting.paletteKey && (
                       <span className="ml-2 text-xs text-zinc-500">({setting.paletteKey})</span>
                     )}
+                    {setting.genre === "star-trek" && <span className="ml-2">🖖</span>}
                   </p>
                   {setting.createdByFamily && (
                     <span className="text-xs text-zinc-500">built by {setting.createdByFamily.name}</span>

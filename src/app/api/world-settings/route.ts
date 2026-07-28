@@ -24,6 +24,8 @@ export async function POST(request: Request) {
   const name = formData.get("name");
   const description = formData.get("description");
   const paletteKey = formData.get("paletteKey");
+  const genreInput = formData.get("genre");
+  const genre = genreInput === "star-trek" ? "star-trek" : "fantasy";
 
   if (typeof name !== "string" || name.trim().length === 0) {
     return Response.json({ error: "name_required" }, { status: 400 });
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
       name: name.trim(),
       description: description.trim(),
       paletteKey: typeof paletteKey === "string" && paletteKey.length > 0 ? paletteKey : null,
+      genre,
       referenceImages,
       createdByFamilyId: auth.familyId,
     },

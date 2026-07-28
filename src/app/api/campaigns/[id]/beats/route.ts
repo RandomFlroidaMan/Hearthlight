@@ -8,6 +8,7 @@ import {
 } from "@/server/storyEngine/generateBeat";
 import { transport } from "@/server/sync/transport";
 import { parseJsonBody } from "@/server/http";
+import { requireFamilyId } from "@/server/auth/session";
 
 const rollSchema = z.object({
   characterId: z.string(),
@@ -47,6 +48,9 @@ export async function POST(
   request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   const bodyResult = await parseJsonBody(request);
   if (!bodyResult.ok) return bodyResult.response;

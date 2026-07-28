@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/server/db";
 import { transport } from "@/server/sync/transport";
 import { parseJsonBody } from "@/server/http";
+import { requireFamilyId } from "@/server/auth/session";
 
 const editSceneSchema = z.object({
   prose: z.string().min(1),
@@ -12,6 +13,9 @@ export async function PATCH(
   request: Request,
   ctx: { params: Promise<{ id: string; sceneId: string }> },
 ) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const { id, sceneId } = await ctx.params;
   const bodyResult = await parseJsonBody(request);
   if (!bodyResult.ok) return bodyResult.response;

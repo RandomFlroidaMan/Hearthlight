@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
 import { buildKeepsake } from "@/server/keepsake/buildKeepsake";
+import { requireFamilyId } from "@/server/auth/session";
 
 function safeFilenamePart(value: string): string {
   return value.replace(/[^a-zA-Z0-9-_ ]/g, "").trim().replace(/\s+/g, "-") || "adventure";
@@ -9,6 +10,9 @@ export async function GET(
   _request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
 
   const campaignRow = await db.campaign.findUnique({

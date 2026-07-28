@@ -30,7 +30,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid_request", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { characterIds, worldSettingId, adventureId, tone } = parsed.data;
+  const { worldSettingId, adventureId, tone } = parsed.data;
+  const characterIds = [...new Set(parsed.data.characterIds)];
 
   // Starting a campaign only draws on your own family's characters —
   // bringing another family's character into a game happens later, by
