@@ -1,15 +1,23 @@
 import { createCharacterSchema } from "@/lib/characterSchema";
 import { db } from "@/server/db";
 import { parseJsonBody } from "@/server/http";
+import { requireFamilyId } from "@/server/auth/session";
 
 export async function GET() {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const characters = await db.character.findMany({
+    where: { familyId: auth.familyId },
     orderBy: { createdAt: "desc" },
   });
   return Response.json({ characters });
 }
 
 export async function POST(request: Request) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const bodyResult = await parseJsonBody(request);
   if (!bodyResult.ok) return bodyResult.response;
   const parsed = createCharacterSchema.safeParse(bodyResult.data);
@@ -24,6 +32,7 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const character = await db.character.create({
     data: {
+      familyId: auth.familyId,
       name: data.name,
       displayName: data.displayName,
       race: data.race,

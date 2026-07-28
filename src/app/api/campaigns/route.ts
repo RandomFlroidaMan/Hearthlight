@@ -6,6 +6,7 @@ import { parseJsonBody } from "@/server/http";
 import { isMonthlyCapExceeded } from "@/server/spendCap";
 import { findAdventure } from "@/lib/adventures";
 import { transport } from "@/server/sync/transport";
+import { requireFamilyId } from "@/server/auth/session";
 
 const createCampaignSchema = z
   .object({
@@ -19,6 +20,9 @@ const createCampaignSchema = z
   });
 
 export async function POST(request: Request) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const bodyResult = await parseJsonBody(request);
   if (!bodyResult.ok) return bodyResult.response;
   const parsed = createCampaignSchema.safeParse(bodyResult.data);
@@ -28,7 +32,12 @@ export async function POST(request: Request) {
 
   const { characterIds, worldSettingId, adventureId, tone } = parsed.data;
 
-  const characters = await db.character.findMany({ where: { id: { in: characterIds } } });
+  // Starting a campaign only draws on your own family's characters —
+  // bringing another family's character into a game happens later, by
+  // joining that specific campaign's room code (see /api/campaigns/[id]/join).
+  const characters = await db.character.findMany({
+    where: { id: { in: characterIds }, familyId: auth.familyId },
+  });
   if (characters.length !== characterIds.length) {
     return Response.json({ error: "character_not_found" }, { status: 404 });
   }
@@ -74,6 +83,7 @@ export async function POST(request: Request) {
   const roomCode = await generateUniqueRoomCode();
   const campaign = await db.campaign.create({
     data: {
+      familyId: auth.familyId,
       worldSettingId: worldSetting.id,
       tone: resolvedTone,
       readingAge,

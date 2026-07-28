@@ -12,13 +12,40 @@ datasource db {
   provider = "sqlite"
 }
 
+// A family account — the login unit. There are no individual user accounts;
+// everyone in a household shares one family login (a name + a simple code),
+// matching how this app is actually used (one shared device, or several,
+// all belonging to the same family). Creating a *new* family additionally
+// requires the deployment-wide bootstrap code (HEARTHLIGHT_BOOTSTRAP_CODE),
+// so this one Hearthlight instance can host several families (e.g. yours
+// and your brother's) without being open to strangers on the internet.
+model Family {
+  id        String   @id @default(cuid())
+  name      String   @unique // display name, e.g. "The Fugetts" — also the login identifier
+  codeHash  String // scrypt hash of the family's chosen simple code, never the code itself
+  createdAt DateTime @default(now())
+
+  characters Character[]
+  campaigns  Campaign[]
+
+  @@map("families")
+}
+
 // A saved player character. Ability scores are the real 5e values; the four
 // kid-facing skills (Might/Magic/Cunning/Heart) are derived from them at
 // read time rather than duplicated here.
 model Character {
   id            String   @id @default(cuid())
+  familyId      String
+  family        Family   @relation(fields: [familyId], references: [id])
   name          String
   displayName   String? // kid-facing name, e.g. "Sneaky Scout" for Rogue
+  // Which flavor-vocabulary system this character's race/class come from —
+  // purely cosmetic/prompt-flavor, never changes the underlying mechanics
+  // (still the same 6 ability scores, same 4 derived kid-facing skills).
+  // Lets a Star Trek character and a fantasy character sit in the same
+  // party (src/lib/startrek.ts mirrors src/lib/dnd.ts's shape).
+  universe      String   @default("fantasy") // "fantasy" | "star-trek"
   race          String
   className     String
   level         Int      @default(1)
@@ -50,11 +77,18 @@ model Character {
 // 5 reference images (e.g. a real turtle photo for a bog town on its back).
 // Every campaign's setting is a WorldSetting row, whether picked from the
 // library or created fresh from a one-off prompt at campaign-start time.
+// Deliberately NOT family-scoped — every family on this deployment shares
+// the same library of places, which is most of what "build stories around
+// each other's adventures" means in practice: any family can start a new
+// campaign in a setting another family already built out.
 model WorldSetting {
   id              String   @id @default(cuid())
   name            String
   description     String // the freeform prompt / world description
   paletteKey      String? // "forest" | "mountain" | "coast" | "night" | null for custom
+  // Which flavor/prompt system this place belongs to — drives which tone
+  // guidance the story engine uses (src/server/storyEngine/genreFlavor.ts).
+  genre           String   @default("fantasy") // "fantasy" | "star-trek"
   referenceImages Json     @default("[]") // string[] of paths under /data/images, max 5 enforced in app layer
   lastSceneImage  String? // filename of the most recently generated scene image for this setting — the fallback target if a new generation fails twice, so a failure never shows a placeholder box
   createdAt       DateTime @default(now())
@@ -67,6 +101,8 @@ model WorldSetting {
 
 model Campaign {
   id                String   @id @default(cuid())
+  familyId          String
+  family            Family   @relation(fields: [familyId], references: [id])
   worldSettingId    String
   worldSetting      WorldSetting @relation(fields: [worldSettingId], references: [id])
   roomCode          String    @unique // short pairing code for the story screen to join this campaign's live room

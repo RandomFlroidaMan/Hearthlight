@@ -30,6 +30,15 @@ free custom subdomain out of the box.
    - `HEARTHLIGHT_MONTHLY_CAP_USD` = whatever spend cap you're comfortable
      with (optional, but recommended for a key that's now reachable from
      anywhere)
+   - `HEARTHLIGHT_BOOTSTRAP_CODE` = a code you choose and share only with the
+     families you want to be able to register (required for anyone to be
+     able to set up a new family account at all — do not put the real value
+     in any file that gets committed to the repo, only in Railway's
+     Variables screen)
+   - `HEARTHLIGHT_SESSION_SECRET` = a long random string (e.g. `openssl rand
+     -hex 32`), used to sign the login session cookie — without it, a random
+     secret is generated on every restart, which logs every family out on
+     every redeploy
    - `NODE_ENV` = `production`
 6. **Deploy.** Railway runs `npm install` (which also runs `prisma
    generate` via `postinstall`), then `npm run build`, then `npm start` —

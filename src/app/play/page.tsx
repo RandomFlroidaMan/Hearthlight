@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
+import { getCurrentFamily } from "@/server/auth/session";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +12,11 @@ export const dynamic = "force-dynamic";
  * /dm and /story remain as the original two-device operator mode.
  */
 export default async function PlayHome() {
+  const family = await getCurrentFamily();
+  if (!family) redirect("/login");
+
   const campaigns = await db.campaign.findMany({
-    where: { status: "active" },
+    where: { status: "active", familyId: family.id },
     include: { characters: { include: { character: true } }, worldSetting: true },
     orderBy: { updatedAt: "desc" },
     take: 10,
@@ -20,9 +26,13 @@ export default async function PlayHome() {
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8 text-zinc-50">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Play together</h1>
-        <Link href="/dm" className="text-sm text-zinc-400 hover:text-zinc-200">
-          Two-device mode →
-        </Link>
+        <div className="flex items-center gap-4 text-sm text-zinc-400">
+          <span>{family.name}</span>
+          <Link href="/dm" className="hover:text-zinc-200">
+            Two-device mode →
+          </Link>
+          <LogoutButton />
+        </div>
       </div>
 
       <Link

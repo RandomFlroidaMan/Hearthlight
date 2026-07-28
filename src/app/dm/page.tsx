@@ -1,13 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentFamily } from "@/server/auth/session";
+import { LogoutButton } from "@/components/LogoutButton";
 
 /**
  * DM screen — private: notes, DCs, story steering controls. Never shown on
  * the story screen.
  */
-export default function DmScreen() {
+export default async function DmScreen() {
+  const family = await getCurrentFamily();
+  if (!family) redirect("/login");
+
   return (
     <div className="flex flex-1 flex-col gap-4 bg-zinc-950 p-8 text-zinc-50">
-      <h1 className="text-xl font-semibold">DM screen</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">DM screen</h1>
+        <div className="flex items-center gap-4 text-sm text-zinc-400">
+          <span>{family.name}</span>
+          <LogoutButton />
+        </div>
+      </div>
       <div className="flex flex-wrap gap-3">
         <Link
           href="/dm/campaigns/new"

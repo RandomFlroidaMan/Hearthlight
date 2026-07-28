@@ -1,12 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentFamily } from "@/server/auth/session";
+import { LogoutButton } from "@/components/LogoutButton";
 
-export default function Home() {
+export default async function Home() {
+  const family = await getCurrentFamily();
+  if (!family) redirect("/login");
+
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden bg-zinc-950 px-6 text-center text-zinc-50">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_700px_420px_at_50%_15%,rgba(232,182,99,0.22),transparent_70%)]"
       />
+      <div className="absolute right-6 top-6 flex items-center gap-4 text-sm text-zinc-400">
+        <span>{family.name}</span>
+        <LogoutButton />
+      </div>
       <span aria-hidden="true" className="relative text-amber-400/70 text-sm tracking-[0.3em]">
         ✦ ─────────── ✦
       </span>

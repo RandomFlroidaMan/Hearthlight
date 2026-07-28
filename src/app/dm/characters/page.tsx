@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
+import { getCurrentFamily } from "@/server/auth/session";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { findClass } from "@/lib/dnd";
 import { toStringArray } from "@/lib/json";
@@ -10,7 +12,11 @@ import { toStringArray } from "@/lib/json";
 export const dynamic = "force-dynamic";
 
 export default async function CharacterLibraryPage() {
+  const family = await getCurrentFamily();
+  if (!family) redirect("/login");
+
   const characters = await db.character.findMany({
+    where: { familyId: family.id },
     orderBy: { createdAt: "desc" },
   });
 

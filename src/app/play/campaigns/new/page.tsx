@@ -1,13 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
+import { getCurrentFamily } from "@/server/auth/session";
 import { PartyCampaignForm } from "@/components/PartyCampaignForm";
 import { ADVENTURES } from "@/lib/adventures";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPartyCampaignPage() {
+  const family = await getCurrentFamily();
+  if (!family) redirect("/login");
+
   const [characters, worldSettings] = await Promise.all([
     db.character.findMany({
+      where: { familyId: family.id },
       select: { id: true, name: true, displayName: true },
       orderBy: { createdAt: "desc" },
     }),

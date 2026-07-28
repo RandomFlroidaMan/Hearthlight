@@ -14,6 +14,7 @@ function fakeCampaign(overrides: Partial<KeepsakeCampaign> = {}): KeepsakeCampai
   const now = new Date();
   return {
     id: "camp-1",
+    familyId: "family-1",
     worldSettingId: "world-1",
     roomCode: "TEST",
     act: "resolution",
@@ -28,6 +29,8 @@ function fakeCampaign(overrides: Partial<KeepsakeCampaign> = {}): KeepsakeCampai
     characters: [
       {
         id: "char-1",
+        familyId: "family-1",
+        universe: "fantasy",
         name: "Quinn",
         displayName: "Quinn the Brave",
         race: "Halfling",
@@ -56,6 +59,7 @@ function fakeCampaign(overrides: Partial<KeepsakeCampaign> = {}): KeepsakeCampai
       id: "world-1",
       name: "The Wandering Bog",
       description: "A bog town on a giant turtle's back.",
+      genre: "fantasy",
       paletteKey: null,
       referenceImages: [],
       lastSceneImage: null,
