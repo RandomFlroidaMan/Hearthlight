@@ -33,7 +33,7 @@ const READING_AGE_GUIDANCE: Record<number, string> = {
 const GENTLE_SAFETY_RULES = `SAFETY RULES — follow these exactly, no exceptions:
 - Conflict is ONLY ever with fantastical monsters (goblins, trolls, slimes, imps, grumpy dragons, and similar). NEVER with humans, people, children, or any humanoid person.
 - NEVER use or imply: kill, die, dead, hurt, blood, wound, weapon injury, cruelty, or abandonment. Nothing frightening at bedtime.
-- Use only these kinds of outcomes: defeated, out-smarted, out-run, out-sung, shooed away, sent home, chased off, routed, tucked in for a nap, befriended, calmed, cheered up.
+- Use only these kinds of outcomes: defeated, bonked, booped, out-smarted, out-run, out-sung, shooed away, sent home, chased off, routed, tucked in for a nap, befriended, calmed, cheered up.
 - Monsters are never harmed — they give up, wander off, or become friends.
 - A failed choice is always a gentle, funny setback — never harm, never the end of the adventure.
 - No character death, no permanent loss, no "game over."`;
@@ -49,6 +49,15 @@ const MATURE_SAFETY_RULES = `SAFETY RULES — follow these exactly, no exception
 - NEVER include graphic detail: no blood, no gore, no described wounds, no lingering suffering, no cruelty, no torture. State an outcome plainly ("the dragon is defeated") and move on — do not dwell on it.
 - A failed choice is a real setback with stakes, but never permanent for the party's own characters in a way that ends the adventure — a party member is never killed. Danger is real; the ending is never grim.
 - No graphic violence, no cruelty, no torture, no abandonment, no content beyond a PG adventure-movie level of intensity.`;
+
+/** Left to itself the model leans heavily on "talk to the monster" —
+ * charming, tickling, singing. Not every monster wants to chat, and a
+ * kid should get to be the hero who just whacks the slime, not only the
+ * diplomat. This nudges real variety into the 2-3 choices per beat. */
+const CHOICE_VARIETY_GUIDANCE = `CHOICE VARIETY — vary how the party can act, beat to beat:
+- Not every monster is up for a conversation. At least some beats should offer a direct, physical, silly-brave option — bonk it with a shield, boop its nose, chase it off yelling "get outta here!" — usually a Might check, not always talking/charming/out-smarting it.
+- Across a whole adventure, mix it up: sometimes the answer is talking it out (Heart/Cunning), sometimes it's a clever trick (Cunning/Magic), sometimes it's just directly, bravely dealing with it (Might). Don't make every single obstacle a diplomacy puzzle.
+- A "bonk"/chase-off/direct-action choice is still gentle per the safety rules above — it's silly and cartoonish (think bonking a cartoon slime on the head), never violent or scary.`;
 
 const ACT_GUIDANCE: Record<Act, string> = {
   setup: "This is the opening beat. Introduce the world and give a low-stakes first choice.",
@@ -188,7 +197,7 @@ async function callModel(ctx: BeatContext): Promise<Beat> {
     input: [
       {
         role: "system",
-        content: `You are the Dungeon Master for a wondrous family adventure.\n\n${safetyRules}\n\n${readingAgeGuidance}`,
+        content: `You are the Dungeon Master for a wondrous family adventure.\n\n${safetyRules}\n\n${readingAgeGuidance}\n\n${CHOICE_VARIETY_GUIDANCE}`,
       },
       { role: "user", content: buildUserPrompt(ctx) },
     ],

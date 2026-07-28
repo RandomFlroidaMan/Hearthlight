@@ -201,6 +201,15 @@ export function CampaignPlayView({
     setDrafts((prev) => ({ ...prev, [characterId]: { ...(prev[characterId] ?? emptyDraft()), ...patch } }));
   }
 
+  /** No physical d20 handy (or just faster): fills in a real random 1-20
+   * for this party member instead — no animation, just the number,
+   * exactly like rolling a die yourself. */
+  function rollForMe(characterId: string, needsSecond: boolean) {
+    const raw = String(Math.floor(Math.random() * 20) + 1);
+    const raw2 = needsSecond ? String(Math.floor(Math.random() * 20) + 1) : "";
+    updateDraft(characterId, { raw, raw2 });
+  }
+
   function submitRoll() {
     if (pendingChoiceIndex === null) return;
     const choice = scene.choices[pendingChoiceIndex];
@@ -405,6 +414,13 @@ export function CampaignPlayView({
                     className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center"
                   />
                 )}
+                <button
+                  type="button"
+                  onClick={() => rollForMe(member.id, draft.mode !== "normal")}
+                  className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+                >
+                  🎲 No die handy? Roll for me
+                </button>
               </div>
             );
           })}
@@ -476,27 +492,29 @@ export function CampaignPlayView({
         >
           Download keepsake
         </a>
-        {showDmTools && (
-          <div className="flex flex-1 gap-2">
-            <input
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-              placeholder="Inject a direction (e.g. bring back the fox)"
-              aria-label="Inject a story direction"
-              className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-            />
-            <button
-              disabled={busy || !direction}
-              onClick={() => {
-                postBeat({ direction });
-                setDirection("");
-              }}
-              className="rounded-full bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
-            >
-              Send
-            </button>
-          </div>
-        )}
+        <div className="flex flex-1 gap-2">
+          <input
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+            placeholder={
+              showDmTools
+                ? "Inject a direction (e.g. bring back the fox)"
+                : "Got your own idea? Type it and see what happens (e.g. what if we asked the turtle for help?)"
+            }
+            aria-label={showDmTools ? "Inject a story direction" : "Suggest your own idea for what happens next"}
+            className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+          />
+          <button
+            disabled={busy || !direction}
+            onClick={() => {
+              postBeat({ direction });
+              setDirection("");
+            }}
+            className="rounded-full bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+          >
+            {showDmTools ? "Send" : "Try it!"}
+          </button>
+        </div>
       </div>
     </div>
   );

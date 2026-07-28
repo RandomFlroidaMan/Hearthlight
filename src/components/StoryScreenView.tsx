@@ -228,6 +228,12 @@ export function StoryScreenView({
               ))}
             </div>
             <button
+              onClick={() => choose(pendingChoiceIndex, Math.floor(Math.random() * 20) + 1)}
+              className="rounded-full border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+            >
+              🎲 No die handy? Roll for me
+            </button>
+            <button
               onClick={() => setPendingChoiceIndex(null)}
               className="text-sm text-zinc-500 underline hover:text-zinc-300"
             >
