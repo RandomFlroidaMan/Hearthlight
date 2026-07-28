@@ -1,18 +1,23 @@
 import { db } from "@/server/db";
 import { saveUploadedImage } from "@/server/art/imageStore";
 import { parseFormData } from "@/server/http";
+import { requireFamilyId } from "@/server/auth/session";
 
 const MAX_REFERENCE_IMAGES = 5;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20MB per image
 
 export async function GET() {
   const worldSettings = await db.worldSetting.findMany({
+    include: { createdByFamily: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
   return Response.json({ worldSettings });
 }
 
 export async function POST(request: Request) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
   const formDataResult = await parseFormData(request);
   if (!formDataResult.ok) return formDataResult.response;
   const formData = formDataResult.data;
@@ -60,6 +65,7 @@ export async function POST(request: Request) {
       description: description.trim(),
       paletteKey: typeof paletteKey === "string" && paletteKey.length > 0 ? paletteKey : null,
       referenceImages,
+      createdByFamilyId: auth.familyId,
     },
   });
 

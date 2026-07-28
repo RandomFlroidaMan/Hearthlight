@@ -27,6 +27,7 @@ model Family {
 
   characters Character[]
   campaigns  Campaign[]
+  createdWorldSettings WorldSetting[]
 
   @@map("families")
 }
@@ -86,6 +87,12 @@ model WorldSetting {
   name            String
   description     String // the freeform prompt / world description
   paletteKey      String? // "forest" | "mountain" | "coast" | "night" | null for custom
+  // Which family built this place, for attribution in the shared library
+  // ("built by The Fugetts") — nullable so world settings from before family
+  // accounts existed, or the built-in Star Trek pack's own settings, can
+  // simply show no attribution rather than needing a fake owner.
+  createdByFamilyId String?
+  createdByFamily   Family? @relation(fields: [createdByFamilyId], references: [id])
   // Which flavor/prompt system this place belongs to — drives which tone
   // guidance the story engine uses (src/server/storyEngine/genreFlavor.ts).
   genre           String   @default("fantasy") // "fantasy" | "star-trek"

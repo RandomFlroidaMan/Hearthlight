@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function WorldSettingLibraryPage() {
   const worldSettings = await db.worldSetting.findMany({
+    include: { createdByFamily: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -49,6 +50,9 @@ export default async function WorldSettingLibraryPage() {
                       <span className="ml-2 text-xs text-zinc-500">({setting.paletteKey})</span>
                     )}
                   </p>
+                  {setting.createdByFamily && (
+                    <span className="text-xs text-zinc-500">built by {setting.createdByFamily.name}</span>
+                  )}
                 </div>
                 <p className="text-sm text-zinc-400">{setting.description}</p>
                 {referenceImages.length > 0 && (

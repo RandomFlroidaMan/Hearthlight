@@ -60,6 +60,7 @@ function fakeCampaign(overrides: Partial<KeepsakeCampaign> = {}): KeepsakeCampai
       name: "The Wandering Bog",
       description: "A bog town on a giant turtle's back.",
       genre: "fantasy",
+      createdByFamilyId: null,
       paletteKey: null,
       referenceImages: [],
       lastSceneImage: null,

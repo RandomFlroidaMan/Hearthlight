@@ -30,6 +30,12 @@ export default async function CharacterLibraryPage() {
         <h1 className="text-xl font-semibold">Character library</h1>
         <div className="flex gap-3">
           <Link
+            href="/dm/characters/shared"
+            className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
+          >
+            Shared vault
+          </Link>
+          <Link
             href="/dm/characters/import"
             className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
           >
