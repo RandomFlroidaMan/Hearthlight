@@ -7,7 +7,7 @@ import { WebSocket } from "ws";
  * story/dice/state code. Only a LAN implementation exists today.
  */
 export type SyncEvent =
-  | { type: "scene"; scene: unknown }
+  | { type: "scene"; scene: unknown; outcome?: unknown }
   | { type: "generation_failed"; message: string };
 
 /** Structural, not the full `ws` class — so tests can pass plain mock

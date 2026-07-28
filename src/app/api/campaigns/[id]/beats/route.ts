@@ -1,10 +1,12 @@
 import { z } from "zod";
 import {
-  generateBeat,
+  resolveChoiceOutcome,
+  completeBeatAdvance,
   CampaignNotFoundError,
   MonthlyCapExceededError,
   RollRequiredError,
 } from "@/server/storyEngine/generateBeat";
+import { transport } from "@/server/sync/transport";
 import { parseJsonBody } from "@/server/http";
 
 const rollSchema = z.object({
@@ -30,8 +32,16 @@ const advanceSchema = z.object({
  *
  * A skill-check choice (choiceIndex pointing at a choice with skill+dc)
  * requires either `roll` (the physical d20 result(s)) or `fudge` (a DM
- * override) — generateBeat throws RollRequiredError otherwise, reported
- * here as a 400, not a generation failure.
+ * override) — resolveChoiceOutcome throws RollRequiredError otherwise,
+ * reported here as a 400, not a generation failure.
+ *
+ * Roll/fudge validation runs synchronously (fast — no OpenAI call), then
+ * responds 202 immediately and finishes the actual generation in the
+ * background, broadcasting the new scene over the same WebSocket every
+ * connected screen already listens on. An inline wait on the full
+ * generation here (a story-text call, then art and narration together)
+ * was long enough to trip a host's own proxy timeout — the same issue
+ * fixed for POST /api/campaigns, now fixed here too.
  */
 export async function POST(
   request: Request,
@@ -46,17 +56,24 @@ export async function POST(
   }
 
   try {
-    const { scene, outcome } = await generateBeat({ campaignId: id, ...parsed.data });
-    return Response.json({ scene, outcome });
+    const beatContext = await resolveChoiceOutcome({ campaignId: id, ...parsed.data });
+
+    void completeBeatAdvance(beatContext).catch((err) => {
+      console.error(`Failed to generate the next beat for campaign ${id}:`, err);
+      const message =
+        err instanceof MonthlyCapExceededError
+          ? err.message
+          : "Something went wrong continuing this adventure.";
+      transport.broadcast(beatContext.campaign.roomCode, { type: "generation_failed", message });
+    });
+
+    return Response.json({ accepted: true }, { status: 202 });
   } catch (err) {
     if (err instanceof RollRequiredError) {
       return Response.json({ error: "roll_required", message: err.message }, { status: 400 });
     }
     if (err instanceof CampaignNotFoundError) {
       return Response.json({ error: "campaign_not_found" }, { status: 404 });
-    }
-    if (err instanceof MonthlyCapExceededError) {
-      return Response.json({ error: "monthly_cap_exceeded", message: err.message }, { status: 402 });
     }
     return Response.json(
       { error: "beat_generation_failed", message: (err as Error).message },

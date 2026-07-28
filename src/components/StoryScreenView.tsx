@@ -67,6 +67,11 @@ export function StoryScreenView({
   const engine = useAudioEngine(narrationMuted, ambienceMuted, effectsMuted);
 
   function applySceneUpdate(newScene: SceneData) {
+    // Cleared unconditionally, not just on an id change — "regenerate"
+    // (DM-screen only, but this screen still receives the broadcast)
+    // updates the same scene row in place, so an id comparison alone
+    // would never clear the loading state for that case.
+    setLoading(false);
     setScene((prev) => {
       if (newScene.id !== prev.id) {
         setPendingChoiceIndex(null);
@@ -75,7 +80,13 @@ export function StoryScreenView({
     });
   }
 
-  useCampaignSync<SceneData>({ campaignId, roomCode, onScene: applySceneUpdate });
+  useCampaignSync<SceneData>({
+    campaignId,
+    roomCode,
+    onScene: applySceneUpdate,
+    onOutcome: (outcome) => playOutcomeSfx(outcome as BeatOutcome),
+    onGenerationFailed: () => setLoading(false),
+  });
 
   // Every scene change — this screen's own action, the DM's action, or a
   // reconnect resync — (re)plays narration and switches ambience to match.
@@ -102,8 +113,13 @@ export function StoryScreenView({
     }
   }
 
+  /** Fires the request and returns — the next scene and its outcome (for
+   * the SFX cue) always arrive via the WebSocket broadcast, never from
+   * this response directly. `loading` stays true until applySceneUpdate
+   * or the generation_failed handler clears it. */
   async function choose(index: number, raw?: number) {
     setLoading(true);
+    setPendingChoiceIndex(null);
     const res = await fetch(`/api/campaigns/${campaignId}/beats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -112,12 +128,8 @@ export function StoryScreenView({
         ...(raw && primaryCharacterId ? { roll: [{ characterId: primaryCharacterId, raw }] } : {}),
       }),
     });
-    setLoading(false);
-    setPendingChoiceIndex(null);
-    if (res.ok) {
-      const json = await res.json();
-      if (json.outcome) playOutcomeSfx(json.outcome as BeatOutcome);
-      applySceneUpdate(json.scene);
+    if (!res.ok) {
+      setLoading(false);
     }
   }
 

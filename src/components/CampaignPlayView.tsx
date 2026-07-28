@@ -107,12 +107,20 @@ export function CampaignPlayView({
   const [drafts, setDrafts] = useState<Record<string, DraftRoll>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
 
-  /** Applies a new scene whether it came from this screen's own POST/PATCH
-   * response or a WebSocket broadcast triggered by the other screen. Resets
-   * in-progress roll/edit state only when it's actually a different scene —
-   * a fudge/roll panel referencing the old scene's choices would otherwise
-   * dangle against the new one's. */
+  /** Applies a new scene whether it came from this screen's own PATCH
+   * response or a WebSocket broadcast — the *only* way a beat this screen
+   * itself requested ever arrives now, since generation runs in the
+   * background (see postBeat). Resets in-progress roll/edit state, and
+   * clears the busy/waiting flag, only when it's actually a different
+   * scene — a fudge/roll panel referencing the old scene's choices would
+   * otherwise dangle against the new one's, and a same-scene refetch (on
+   * initial load or reconnect) shouldn't interrupt anything in flight. */
   function applySceneUpdate(newScene: SceneData) {
+    // Cleared unconditionally, not just on an id change: "regenerate"
+    // updates the *same* scene row in place rather than creating a new
+    // one, so an id comparison alone would never clear the waiting state
+    // for that action.
+    setBusy(false);
     setScene((prev) => {
       if (newScene.id !== prev.id) {
         setPendingChoiceIndex(null);
@@ -125,8 +133,23 @@ export function CampaignPlayView({
     });
   }
 
-  useCampaignSync<SceneData>({ campaignId, roomCode, onScene: applySceneUpdate });
+  useCampaignSync<SceneData>({
+    campaignId,
+    roomCode,
+    onScene: applySceneUpdate,
+    onGenerationFailed: (message) => {
+      setBusy(false);
+      setError(message);
+    },
+  });
 
+  /** Fires the request and returns — the actual next scene always arrives
+   * via the WebSocket broadcast (from this screen's own request or
+   * another screen's), never from this response directly. Generation
+   * happens in the background server-side specifically so this doesn't
+   * have to sit on an open HTTP request for 15-30 seconds, which was long
+   * enough to trip a host's own proxy timeout. `busy` stays true until
+   * applySceneUpdate or the generation_failed handler above clears it. */
   async function postBeat(body: Record<string, unknown>) {
     setBusy(true);
     setError(null);
@@ -135,16 +158,12 @@ export function CampaignPlayView({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    setBusy(false);
 
     if (!res.ok) {
+      setBusy(false);
       const json = await res.json().catch(() => ({}));
       setError(json.message ?? json.error ?? "Something went wrong generating that beat.");
-      return;
     }
-
-    const json = await res.json();
-    applySceneUpdate(json.scene);
   }
 
   async function saveProse() {

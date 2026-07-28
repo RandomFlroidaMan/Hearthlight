@@ -19,10 +19,27 @@ export function useCampaignSync<T>(params: {
   campaignId: string;
   roomCode: string;
   onScene: (scene: T) => void;
+  /** Fired alongside onScene when the broadcast carries the roll/item
+   * outcome for the beat that produced this scene — used to cue sound
+   * effects. Absent on the initial-load/reconnect refetch, which only
+   * ever has a scene, not a fresh outcome to react to. */
+  onOutcome?: (outcome: unknown) => void;
+  /** A beat this screen (or another connected screen) tried to generate
+   * failed outright — as opposed to a scene simply not having arrived
+   * yet. */
+  onGenerationFailed?: (message: string) => void;
 }) {
   const onSceneRef = useRef(params.onScene);
   useEffect(() => {
     onSceneRef.current = params.onScene;
+  });
+  const onOutcomeRef = useRef(params.onOutcome);
+  useEffect(() => {
+    onOutcomeRef.current = params.onOutcome;
+  });
+  const onGenerationFailedRef = useRef(params.onGenerationFailed);
+  useEffect(() => {
+    onGenerationFailedRef.current = params.onGenerationFailed;
   });
 
   const { campaignId, roomCode } = params;
@@ -61,6 +78,9 @@ export function useCampaignSync<T>(params: {
           const data = JSON.parse(event.data);
           if (data.type === "scene") {
             onSceneRef.current(data.scene);
+            if (data.outcome) onOutcomeRef.current?.(data.outcome);
+          } else if (data.type === "generation_failed") {
+            onGenerationFailedRef.current?.(data.message);
           }
         } catch {
           // Ignore malformed messages rather than crashing the screen.

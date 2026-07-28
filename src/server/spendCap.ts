@@ -14,10 +14,21 @@ export async function getMonthSpendUsd(): Promise<number> {
   return result._sum.costUsd ?? 0;
 }
 
-/** `Settings.monthlyCapUsd` is nullable — null/unset means no cap. */
+/** `Settings.monthlyCapUsd` (set via the Preferences page) is the primary
+ * cap; HEARTHLIGHT_MONTHLY_CAP_USD is only a deployment-time default that
+ * applies until someone explicitly sets (or explicitly clears) a cap in
+ * Preferences — it does not stack with, and is never added to, the DB
+ * value. Both unset means no cap. */
+export function envDefaultCapUsd(): number | null {
+  const raw = process.env.HEARTHLIGHT_MONTHLY_CAP_USD;
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export async function isMonthlyCapExceeded(): Promise<boolean> {
   const settings = await db.settings.findUnique({ where: { id: SETTINGS_ID } });
-  const cap = settings?.monthlyCapUsd;
+  const cap = settings?.monthlyCapUsd ?? envDefaultCapUsd();
   if (cap === null || cap === undefined) return false;
   const spent = await getMonthSpendUsd();
   return spent >= cap;

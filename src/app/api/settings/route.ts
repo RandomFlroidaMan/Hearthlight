@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/server/db";
 import { parseJsonBody } from "@/server/http";
+import { envDefaultCapUsd } from "@/server/spendCap";
 
 const SETTINGS_ID = "default";
 
@@ -33,7 +34,10 @@ export async function GET() {
     effectsMuted: settings?.effectsMuted ?? DEFAULTS.effectsMuted,
     dmFudgeEnabled: settings?.dmFudgeEnabled ?? DEFAULTS.dmFudgeEnabled,
     matureCombatEnabled: settings?.matureCombatEnabled ?? DEFAULTS.matureCombatEnabled,
-    monthlyCapUsd: settings?.monthlyCapUsd ?? DEFAULTS.monthlyCapUsd,
+    // Reflects the same fallback isMonthlyCapExceeded uses — Preferences
+    // shows the deployment-time HEARTHLIGHT_MONTHLY_CAP_USD default until
+    // someone explicitly sets (or explicitly clears) a cap here.
+    monthlyCapUsd: settings?.monthlyCapUsd ?? envDefaultCapUsd() ?? DEFAULTS.monthlyCapUsd,
   });
 }
 

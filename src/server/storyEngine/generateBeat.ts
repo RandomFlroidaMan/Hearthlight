@@ -47,7 +47,9 @@ export class CampaignNotFoundError extends Error {}
 
 /** The DM's configured monthly spend cap (Settings.monthlyCapUsd) has been
  * reached — a 402, not a generation failure. Never blocks reusing an
- * already-generated (already-paid-for) prefetched beat, only new spend. */
+ * already-generated (already-paid-for) prefetched beat, only new spend.
+ * Thrown from the (backgrounded) generation phase, not the fast
+ * validation phase — see resolveChoiceOutcome vs. completeBeatAdvance. */
 export class MonthlyCapExceededError extends Error {}
 
 /** Just enough about what happened to cue a sound effect on the story
@@ -60,7 +62,7 @@ export interface BeatOutcome {
   itemAwarded: boolean;
 }
 
-export async function generateBeat(params: {
+export interface BeatAdvanceParams {
   campaignId: string;
   choiceIndex?: number;
   /** One entry per party member present for this check — everyone rolls. */
@@ -69,7 +71,40 @@ export async function generateBeat(params: {
   direction?: string | null;
   forceEnding?: boolean;
   regenerate?: boolean;
-}): Promise<{ scene: Scene; outcome: BeatOutcome }> {
+}
+
+/** Everything resolveChoiceOutcome figured out, handed to completeBeatAdvance
+ * to actually generate and save the next scene. */
+export interface BeatAdvanceContext {
+  campaign: Campaign & { worldSetting: WorldSetting };
+  characters: Character[];
+  matureCombatAllowed: boolean;
+  act: Act;
+  chosenChoice: Choice | undefined;
+  chosenChoiceSucceeded: boolean;
+  chosenChoiceOutcomeHint: string | null;
+  hadCheck: boolean;
+  anyNatural20: boolean;
+  scenes: Scene[];
+  priorScenes: Scene[];
+  latestScene: Scene | undefined;
+  params: BeatAdvanceParams;
+}
+
+/**
+ * The fast half of advancing a beat: everything that's pure DB reads/writes
+ * — no OpenAI call, so this reliably finishes in well under a second and
+ * is safe to await directly in a route handler. Resolves (and persists)
+ * the physical dice roll or DM-fudge for the chosen choice, throwing
+ * RollRequiredError/CampaignNotFoundError as real client-facing errors.
+ * The slow part (actually generating the next scene) is
+ * completeBeatAdvance, deliberately kept separate so a route can respond
+ * to the player immediately and run that part in the background — an
+ * inline 15-30 second wait was long enough to trip Railway's own proxy
+ * timeout ("Application failed to respond"), a lesson learned the hard
+ * way from POST /api/campaigns before this same split was applied there.
+ */
+export async function resolveChoiceOutcome(params: BeatAdvanceParams): Promise<BeatAdvanceContext> {
   const campaignRow = await db.campaign.findUnique({
     where: { id: params.campaignId },
     include: { characters: { include: { character: true } }, worldSetting: true },
@@ -163,6 +198,35 @@ export async function generateBeat(params: {
       : chosenChoice.failureHint;
   }
 
+  return {
+    campaign,
+    characters,
+    matureCombatAllowed,
+    act,
+    chosenChoice,
+    chosenChoiceSucceeded,
+    chosenChoiceOutcomeHint,
+    hadCheck,
+    anyNatural20,
+    scenes,
+    priorScenes,
+    latestScene,
+    params,
+  };
+}
+
+/**
+ * The slow half: reuses a ready prefetched beat if one exists, otherwise
+ * calls the OpenAI-backed content pipeline, then saves everything and
+ * broadcasts the new scene (with its outcome, so every connected screen —
+ * not just whichever one triggered this — can react, e.g. play a sound
+ * effect). Safe to run fire-and-forget in the background; failures are
+ * reported via a "generation_failed" broadcast rather than a thrown error
+ * reaching an already-answered HTTP request.
+ */
+export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ scene: Scene; outcome: BeatOutcome }> {
+  const { campaign, characters, matureCombatAllowed, act, chosenChoice, chosenChoiceSucceeded, chosenChoiceOutcomeHint, latestScene, priorScenes, scenes, params } = ctx;
+
   // A background prefetch (triggered when the current scene was created)
   // may already have this exact choice+outcome ready — reuse it instead of
   // generating fresh. Only applies to a real choice pick, never to
@@ -252,7 +316,14 @@ export async function generateBeat(params: {
 
   await updateDigestIfNeeded(campaign.id);
 
-  transport.broadcast(campaign.roomCode, { type: "scene", scene });
+  const outcome: BeatOutcome = {
+    hadCheck: ctx.hadCheck,
+    success: chosenChoiceSucceeded,
+    isNatural20: ctx.anyNatural20,
+    itemAwarded: beat.itemReward !== null,
+  };
+
+  transport.broadcast(campaign.roomCode, { type: "scene", scene, outcome });
 
   // Fire-and-forget: guesses what's next for *this* scene's own choices,
   // so the next hop is fast too. Never awaited — must not add latency to
@@ -265,13 +336,13 @@ export async function generateBeat(params: {
     priorScenes: params.regenerate ? priorScenes : scenes,
   });
 
-  return {
-    scene,
-    outcome: {
-      hadCheck,
-      success: chosenChoiceSucceeded,
-      isNatural20: anyNatural20,
-      itemAwarded: beat.itemReward !== null,
-    },
-  };
+  return { scene, outcome };
+}
+
+/** Convenience wrapper for callers that don't need the fast/slow split —
+ * currently just POST /api/campaigns, whose "choice" is always empty (the
+ * opening beat), so there's no roll validation to fast-path around. */
+export async function generateBeat(params: BeatAdvanceParams): Promise<{ scene: Scene; outcome: BeatOutcome }> {
+  const ctx = await resolveChoiceOutcome(params);
+  return completeBeatAdvance(ctx);
 }
