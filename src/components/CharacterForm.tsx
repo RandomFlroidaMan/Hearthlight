@@ -2,13 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CLASSES, RACES, findClass } from "@/lib/dnd";
+import { CLASSES, RACES } from "@/lib/dnd";
+import { SPECIES, RANKS, findClassInfo } from "@/lib/startrek";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { readingAges, type CreateCharacterInput } from "@/lib/characterSchema";
+
+type Universe = "fantasy" | "star-trek";
 
 export type FormState = {
   name: string;
   useKidName: boolean;
+  universe: Universe;
   race: string;
   className: string;
   level: number;
@@ -30,6 +34,7 @@ export type FormState = {
 const DEFAULT_STATE: FormState = {
   name: "",
   useKidName: true,
+  universe: "fantasy",
   race: RACES[0],
   className: CLASSES[0].name,
   level: 1,
@@ -72,7 +77,15 @@ export function CharacterForm({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const classInfo = findClass(state.className);
+  const classInfo = findClassInfo(state.className);
+  const raceOptions = state.universe === "fantasy" ? RACES : SPECIES;
+  const classOptions = state.universe === "fantasy" ? CLASSES : RANKS;
+
+  function setUniverse(universe: Universe) {
+    const newRaces = universe === "fantasy" ? RACES : SPECIES;
+    const newClasses = universe === "fantasy" ? CLASSES : RANKS;
+    setState((s) => ({ ...s, universe, race: newRaces[0], className: newClasses[0].name }));
+  }
   const proficiencies = useMemo(() => splitLines(state.proficienciesText), [state.proficienciesText]);
 
   const preview = useMemo(
@@ -104,6 +117,7 @@ export function CharacterForm({
     const payload: CreateCharacterInput = {
       name: state.name,
       displayName: state.useKidName ? (classInfo?.kidName ?? null) : null,
+      universe: state.universe,
       race: state.race,
       className: state.className,
       level: state.level,
@@ -153,15 +167,32 @@ export function CharacterForm({
         />
       </label>
 
+      <div className="flex gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => setUniverse("fantasy")}
+          className={`rounded-full px-4 py-2 ${state.universe === "fantasy" ? "bg-zinc-50 text-zinc-950" : "border border-zinc-700 text-zinc-400"}`}
+        >
+          ⚔ Fantasy
+        </button>
+        <button
+          type="button"
+          onClick={() => setUniverse("star-trek")}
+          className={`rounded-full px-4 py-2 ${state.universe === "star-trek" ? "bg-zinc-50 text-zinc-950" : "border border-zinc-700 text-zinc-400"}`}
+        >
+          🖖 Star Trek
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">Race</span>
+          <span className="text-sm text-zinc-400">{state.universe === "fantasy" ? "Race" : "Species"}</span>
           <select
             value={state.race}
             onChange={(e) => setState((s) => ({ ...s, race: e.target.value }))}
             className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2"
           >
-            {RACES.map((r) => (
+            {raceOptions.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -170,13 +201,13 @@ export function CharacterForm({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">Class</span>
+          <span className="text-sm text-zinc-400">{state.universe === "fantasy" ? "Class" : "Rank"}</span>
           <select
             value={state.className}
             onChange={(e) => setState((s) => ({ ...s, className: e.target.value }))}
             className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2"
           >
-            {CLASSES.map((c) => (
+            {classOptions.map((c) => (
               <option key={c.name} value={c.name}>
                 {c.name} ({c.kidName})
               </option>

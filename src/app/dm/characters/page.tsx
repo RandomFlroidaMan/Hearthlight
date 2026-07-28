@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { getCurrentFamily } from "@/server/auth/session";
 import { deriveSkills } from "@/lib/deriveSkills";
-import { findClass } from "@/lib/dnd";
+import { findClassInfo } from "@/lib/startrek";
 import { toStringArray } from "@/lib/json";
 
 // Reads live from the DB on every request. Without this, Next statically
@@ -79,7 +79,7 @@ export default async function CharacterLibraryPage() {
               charisma: character.charisma,
               proficiencies,
             });
-            const classInfo = findClass(character.className);
+            const classInfo = findClassInfo(character.className);
 
             return (
               <li
@@ -92,6 +92,7 @@ export default async function CharacterLibraryPage() {
                     <span className="text-sm text-zinc-400">
                       — {character.displayName ?? classInfo?.kidName ?? character.className}
                     </span>
+                    {character.universe === "star-trek" && <span className="ml-2">🖖</span>}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {character.race} {character.className}, level {character.level} · reading age{" "}

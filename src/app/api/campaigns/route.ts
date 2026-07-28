@@ -54,6 +54,7 @@ export async function POST(request: Request) {
           name: adventure.worldSettingName,
           description: adventure.worldSettingDescription,
           paletteKey: adventure.paletteKey,
+          genre: adventure.genre,
           createdByFamilyId: auth.familyId,
         },
       }));

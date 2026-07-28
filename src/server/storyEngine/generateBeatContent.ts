@@ -4,8 +4,9 @@ import { modelConfig } from "@/server/config/models";
 import { generateSceneImage } from "@/server/art/generateSceneImage";
 import { generateNarration } from "@/server/audio/generateNarration";
 import { deriveSkills } from "@/lib/deriveSkills";
-import { findClass } from "@/lib/dnd";
+import { findClassInfo } from "@/lib/startrek";
 import { toStringArray } from "@/lib/json";
+import { GENRE_FLAVOR, crossoverGuidance, type Genre } from "./genreFlavor";
 import { validateBeat } from "@/server/contentPolicy/validator";
 import { FALLBACK_BEATS } from "@/server/contentPolicy/fallbackBeats";
 import { beatSchema, type Beat } from "./beatSchema";
@@ -97,7 +98,7 @@ export interface BeatContent {
 }
 
 function characterSummary(character: Character): string {
-  const classInfo = findClass(character.className);
+  const classInfo = findClassInfo(character.className);
   const skills = deriveSkills({
     className: character.className,
     level: character.level,
@@ -138,6 +139,11 @@ function buildUserPrompt(ctx: BeatContext): string {
       : []),
     `CURRENT ACT: ${ctx.act}. ${ACT_GUIDANCE[ctx.act]}`,
   ];
+
+  const crossover = crossoverGuidance((ctx.worldSetting.genre as Genre) ?? "fantasy", ctx.characters);
+  if (crossover) {
+    parts.push(crossover);
+  }
 
   if (ctx.digestSummary) {
     parts.push(`STORY SO FAR: ${ctx.digestSummary}`);
@@ -191,13 +197,22 @@ function buildUserPrompt(ctx: BeatContext): string {
 async function callModel(ctx: BeatContext): Promise<Beat> {
   const readingAgeGuidance = READING_AGE_GUIDANCE[ctx.readingAge] ?? READING_AGE_GUIDANCE[5];
   const safetyRules = ctx.matureCombatAllowed ? MATURE_SAFETY_RULES : GENTLE_SAFETY_RULES;
+  const genreFlavor = GENRE_FLAVOR[(ctx.worldSetting.genre as Genre) ?? "fantasy"];
 
   const response = await openai.responses.create({
     model: modelConfig.text.model,
     input: [
       {
         role: "system",
-        content: `You are the Dungeon Master for a wondrous family adventure.\n\n${safetyRules}\n\n${readingAgeGuidance}\n\n${CHOICE_VARIETY_GUIDANCE}`,
+        content: [
+          "You are the Dungeon Master for a wondrous family adventure.",
+          safetyRules,
+          readingAgeGuidance,
+          CHOICE_VARIETY_GUIDANCE,
+          genreFlavor,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
       },
       { role: "user", content: buildUserPrompt(ctx) },
     ],

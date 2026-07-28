@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       familyId: auth.familyId,
       name: data.name,
       displayName: data.displayName,
+      universe: data.universe,
       race: data.race,
       className: data.className,
       level: data.level,

@@ -1,4 +1,5 @@
-import { abilityModifier, findClass, proficiencyBonus, type AbilityName } from "./dnd";
+import { abilityModifier, proficiencyBonus, type AbilityName } from "./dnd";
+import { findClassInfo } from "./startrek";
 
 export interface DerivedSkillsInput {
   className: string;
@@ -61,7 +62,7 @@ function scoreFor(
 }
 
 export function deriveSkills(input: DerivedSkillsInput): DerivedSkills {
-  const classInfo = findClass(input.className);
+  const classInfo = findClassInfo(input.className);
   const magicAbility: AbilityName = classInfo?.spellcastingAbility ?? "intelligence";
 
   const heartBase = Math.round(

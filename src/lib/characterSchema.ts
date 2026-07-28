@@ -43,6 +43,11 @@ export type ReadingAge = (typeof readingAges)[number];
 export const createCharacterSchema = characterSheetSchema.extend({
   readingAge: z.union([z.literal(3), z.literal(5), z.literal(7), z.literal(10)]),
   sourceSheet: z.string().nullable(),
+  // Which flavor-vocabulary pack this character's race/class come from —
+  // purely cosmetic, same six ability scores and four kid-facing skills
+  // either way. Defaults to "fantasy" since imported sheets are always real
+  // 5e sheets; only the from-scratch creation form ever sends "star-trek".
+  universe: z.enum(["fantasy", "star-trek"]).default("fantasy"),
 });
 
 export type CreateCharacterInput = z.infer<typeof createCharacterSchema>;

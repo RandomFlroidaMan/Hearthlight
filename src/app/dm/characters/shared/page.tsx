@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { getCurrentFamily } from "@/server/auth/session";
 import { CopyCharacterButton } from "@/components/CopyCharacterButton";
 import { deriveSkills } from "@/lib/deriveSkills";
-import { findClass } from "@/lib/dnd";
+import { findClassInfo } from "@/lib/startrek";
 import { toStringArray } from "@/lib/json";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export default async function SharedCharacterVaultPage() {
               charisma: character.charisma,
               proficiencies,
             });
-            const classInfo = findClass(character.className);
+            const classInfo = findClassInfo(character.className);
             const isOwnFamily = character.familyId === family.id;
 
             return (
@@ -68,6 +68,7 @@ export default async function SharedCharacterVaultPage() {
                     <span className="text-sm text-zinc-400">
                       — {character.displayName ?? classInfo?.kidName ?? character.className}
                     </span>
+                    {character.universe === "star-trek" && <span className="ml-2">🖖</span>}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {character.race} {character.className}, level {character.level} ·{" "}

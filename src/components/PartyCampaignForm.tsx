@@ -110,7 +110,9 @@ export function PartyCampaignForm({
                     checked={adventureId === a.id}
                     onChange={() => setAdventureId(a.id)}
                   />
-                  <span className="font-medium">{a.title}</span>
+                  <span className="font-medium">
+                    {a.title} {a.genre === "star-trek" && "🖖"}
+                  </span>
                 </span>
                 <span className="pl-6 text-sm text-zinc-400">{a.blurb}</span>
               </label>
