@@ -2,18 +2,27 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-zinc-950 px-6 text-center text-zinc-50">
-      <h1 className="text-3xl font-semibold tracking-tight">Hearthlight</h1>
-      <p className="max-w-md text-zinc-400">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden bg-zinc-950 px-6 text-center text-zinc-50">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_700px_420px_at_50%_15%,rgba(232,182,99,0.22),transparent_70%)]"
+      />
+      <span aria-hidden="true" className="relative text-amber-400/70 text-sm tracking-[0.3em]">
+        ✦ ─────────── ✦
+      </span>
+      <h1 className="relative text-5xl font-black tracking-wide text-amber-100 drop-shadow-[0_0_18px_rgba(232,182,99,0.35)]">
+        Hearthlight
+      </h1>
+      <p className="relative max-w-md text-lg text-zinc-300">
         A family storytelling adventure — pick a story, build your party, and
         play together on one screen.
       </p>
-      <div className="flex flex-wrap justify-center gap-4">
+      <div className="relative flex flex-wrap justify-center gap-4">
         <Link
           href="/play"
-          className="rounded-full bg-zinc-50 px-5 py-3 font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+          className="rounded-full border border-amber-300/40 bg-gradient-to-b from-amber-200 to-amber-400 px-7 py-3 font-display font-semibold tracking-wide text-amber-950 shadow-[0_0_25px_rgba(232,182,99,0.35)] transition-transform hover:scale-105 hover:shadow-[0_0_35px_rgba(232,182,99,0.5)]"
         >
-          Play together
+          ⚔ Play together
         </Link>
         <Link
           href="/dm"
@@ -28,7 +37,7 @@ export default function Home() {
           Story screen
         </Link>
       </div>
-      <p className="max-w-md text-xs text-zinc-600">
+      <p className="relative max-w-md text-xs text-zinc-500">
         The DM and Story screens are the original two-device mode — a private
         operator screen synced live to a public one. Play together is a
         single shared screen for the whole family, no second device needed.

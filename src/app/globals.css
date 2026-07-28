@@ -5,10 +5,37 @@
   --foreground: #171717;
 }
 
+/**
+ * Fantasy re-theme. Nearly every screen in the app is built from Tailwind's
+ * plain zinc/amber scale (bg-zinc-950 page backgrounds, zinc-700 borders,
+ * zinc-400 secondary text, amber-* accents) — so redefining what those
+ * color tokens actually render as here reskins the whole app to a warm
+ * parchment/bronze/candlelight palette without touching every component's
+ * className. zinc-950 → deep near-black walnut-brown (not cold black),
+ * zinc-50 → warm parchment ivory (not stark white), and so on down the
+ * scale, keeping each step's relative lightness close to Tailwind's
+ * defaults so existing contrast pairings (e.g. zinc-400 text on a
+ * zinc-950 background) stay legible.
+ */
+@theme {
+  --color-zinc-50: #faf3e2;
+  --color-zinc-100: #f0e2c2;
+  --color-zinc-200: #e8d6b3;
+  --color-zinc-300: #d3ba90;
+  --color-zinc-400: #bd9c6e;
+  --color-zinc-500: #8a6a42;
+  --color-zinc-600: #64492c;
+  --color-zinc-700: #4a3520;
+  --color-zinc-800: #332415;
+  --color-zinc-900: #241a10;
+  --color-zinc-950: #16100a;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-lora);
+  --font-display: var(--font-cinzel);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -20,9 +47,19 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(226, 174, 96, 0.16), transparent 65%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-lora), Georgia, "Times New Roman", serif;
+}
+
+/* Titles read like carved-stone/old-book lettering rather than a modern
+   app UI — applies everywhere automatically since every page uses a
+   plain <h1>. */
+h1 {
+  font-family: var(--font-cinzel), Georgia, serif;
+  letter-spacing: 0.02em;
 }
 
 /* A warm "the story continues" moment while the next beat generates —
