@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { StoryScreenView } from "@/components/StoryScreenView";
+import { FirstSceneWaiter } from "@/components/FirstSceneWaiter";
 import { getAudioManifest } from "@/server/audio/assetManifest";
 import type { Choice } from "@/server/storyEngine/beatSchema";
 
@@ -29,7 +30,11 @@ export default async function StoryCampaignPage({
 
   const latestScene = campaign.scenes[0];
   if (!latestScene) {
-    throw new Error(`Campaign ${id} has no scenes.`);
+    return (
+      <div className="flex min-h-screen flex-col bg-zinc-950 p-8">
+        <FirstSceneWaiter campaignId={campaign.id} backHref="/story" />
+      </div>
+    );
   }
 
   // This screen's bare "what did your die show?" number pad only rolls for

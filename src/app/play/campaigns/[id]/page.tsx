@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { CampaignPlayView } from "@/components/CampaignPlayView";
+import { FirstSceneWaiter } from "@/components/FirstSceneWaiter";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { toStringArray } from "@/lib/json";
 import type { Choice } from "@/server/storyEngine/beatSchema";
@@ -35,8 +36,20 @@ export default async function PlayCampaignPage({
   const characters = partyLinks.map((link) => link.character);
 
   const latestScene = campaign.scenes[0];
+  const partyLabel = characters.map((c) => c.displayName ?? c.name).join(" & ");
+
   if (!latestScene) {
-    throw new Error(`Campaign ${id} has no scenes.`);
+    return (
+      <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
+        <Link href="/play" className="text-sm text-zinc-400 hover:text-zinc-200">
+          ← Play together
+        </Link>
+        <h1 className="text-xl font-semibold text-zinc-50">
+          {partyLabel} in {campaign.worldSetting.name}
+        </h1>
+        <FirstSceneWaiter campaignId={campaign.id} backHref="/play/campaigns/new" />
+      </div>
+    );
   }
 
   const party = characters.map((character) => ({
@@ -55,8 +68,6 @@ export default async function PlayCampaignPage({
       proficiencies: toStringArray(character.proficiencies),
     }),
   }));
-
-  const partyLabel = characters.map((c) => c.displayName ?? c.name).join(" & ");
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">

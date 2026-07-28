@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { CampaignPlayView } from "@/components/CampaignPlayView";
+import { FirstSceneWaiter } from "@/components/FirstSceneWaiter";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { toStringArray } from "@/lib/json";
 import type { Choice } from "@/server/storyEngine/beatSchema";
@@ -29,10 +30,20 @@ export default async function CampaignPage({
   const characters = partyLinks.map((link) => link.character);
 
   const latestScene = campaign.scenes[0];
+  const partyLabel = characters.map((c) => c.displayName ?? c.name).join(" & ");
+
   if (!latestScene) {
-    // Shouldn't happen — campaign creation always generates the first beat
-    // synchronously — but fail loudly rather than rendering a blank page.
-    throw new Error(`Campaign ${id} has no scenes.`);
+    return (
+      <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
+        <Link href="/dm" className="text-sm text-zinc-400 hover:text-zinc-200">
+          ← DM screen
+        </Link>
+        <h1 className="text-xl font-semibold text-zinc-50">
+          {partyLabel} in {campaign.worldSetting.name}
+        </h1>
+        <FirstSceneWaiter campaignId={campaign.id} backHref="/dm/campaigns/new" />
+      </div>
+    );
   }
 
   const party = characters.map((character) => ({
@@ -55,8 +66,6 @@ export default async function CampaignPage({
   // No settings-management UI exists yet — this just reads the singleton
   // row the schema already defines, defaulting false if it's never been created.
   const settings = await db.settings.findUnique({ where: { id: "default" } });
-
-  const partyLabel = characters.map((c) => c.displayName ?? c.name).join(" & ");
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">

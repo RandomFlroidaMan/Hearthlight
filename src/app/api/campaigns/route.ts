@@ -5,6 +5,7 @@ import { generateUniqueRoomCode } from "@/server/sync/roomCode";
 import { parseJsonBody } from "@/server/http";
 import { isMonthlyCapExceeded } from "@/server/spendCap";
 import { findAdventure } from "@/lib/adventures";
+import { transport } from "@/server/sync/transport";
 
 const createCampaignSchema = z
   .object({
@@ -81,7 +82,21 @@ export async function POST(request: Request) {
     },
   });
 
-  const { scene: firstScene } = await generateBeat({ campaignId: campaign.id });
+  // The first beat (a story-text call, then art and narration together) can
+  // easily take 15-30+ seconds — long enough to trip a host's own proxy
+  // timeout (that's exactly what "Application failed to respond" on
+  // Railway turned out to mean) if the client has to wait on it inline.
+  // Respond as soon as the campaign itself exists; the client moves on to
+  // the play screen immediately and picks up the first scene via the same
+  // WebSocket broadcast/refetch every later beat already uses.
+  void generateBeat({ campaignId: campaign.id }).catch(async (err) => {
+    console.error(`Failed to generate the opening beat for campaign ${campaign.id}:`, err);
+    await db.campaign.update({ where: { id: campaign.id }, data: { status: "failed" } }).catch(() => {});
+    transport.broadcast(roomCode, {
+      type: "generation_failed",
+      message: "Something went wrong starting this adventure.",
+    });
+  });
 
-  return Response.json({ campaign, firstScene }, { status: 201 });
+  return Response.json({ campaign }, { status: 201 });
 }

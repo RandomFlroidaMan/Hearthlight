@@ -6,10 +6,9 @@ import { WebSocket } from "ws";
  * US, but out of scope for now) can be swapped in later without touching
  * story/dice/state code. Only a LAN implementation exists today.
  */
-export interface SyncEvent {
-  type: "scene";
-  scene: unknown;
-}
+export type SyncEvent =
+  | { type: "scene"; scene: unknown }
+  | { type: "generation_failed"; message: string };
 
 /** Structural, not the full `ws` class — so tests can pass plain mock
  * objects instead of standing up a real WebSocket. */
