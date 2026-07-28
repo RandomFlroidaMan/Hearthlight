@@ -28,6 +28,9 @@ export function useCampaignSync<T>(params: {
    * failed outright — as opposed to a scene simply not having arrived
    * yet. */
   onGenerationFailed?: (message: string) => void;
+  /** Another family joined this room with their own character(s) — the
+   * party roster on the server changed underneath this screen. */
+  onPartyChanged?: () => void;
 }) {
   const onSceneRef = useRef(params.onScene);
   useEffect(() => {
@@ -40,6 +43,10 @@ export function useCampaignSync<T>(params: {
   const onGenerationFailedRef = useRef(params.onGenerationFailed);
   useEffect(() => {
     onGenerationFailedRef.current = params.onGenerationFailed;
+  });
+  const onPartyChangedRef = useRef(params.onPartyChanged);
+  useEffect(() => {
+    onPartyChangedRef.current = params.onPartyChanged;
   });
 
   const { campaignId, roomCode } = params;
@@ -81,6 +88,8 @@ export function useCampaignSync<T>(params: {
             if (data.outcome) onOutcomeRef.current?.(data.outcome);
           } else if (data.type === "generation_failed") {
             onGenerationFailedRef.current?.(data.message);
+          } else if (data.type === "party_changed") {
+            onPartyChangedRef.current?.();
           }
         } catch {
           // Ignore malformed messages rather than crashing the screen.

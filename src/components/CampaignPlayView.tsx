@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCampaignSync } from "@/lib/useCampaignSync";
 // Type-only import — erased at compile time, so this does not pull
 // server-side runtime code (or the OpenAI/Prisma clients it touches) into
@@ -106,6 +107,7 @@ export function CampaignPlayView({
   const [pendingChoiceIndex, setPendingChoiceIndex] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, DraftRoll>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const router = useRouter();
 
   /** Applies a new scene whether it came from this screen's own PATCH
    * response or a WebSocket broadcast — the *only* way a beat this screen
@@ -141,6 +143,11 @@ export function CampaignPlayView({
       setBusy(false);
       setError(message);
     },
+    // A new family joined this room with their own character — the server
+    // component's `party` prop is stale until this page's data is
+    // re-fetched; simplest correct fix given how rare/non-perf-sensitive
+    // this event is.
+    onPartyChanged: () => router.refresh(),
   });
 
   /** Fires the request and returns — the actual next scene always arrives

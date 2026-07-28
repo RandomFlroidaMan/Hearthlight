@@ -8,7 +8,11 @@ import { WebSocket } from "ws";
  */
 export type SyncEvent =
   | { type: "scene"; scene: unknown; outcome?: unknown }
-  | { type: "generation_failed"; message: string };
+  | { type: "generation_failed"; message: string }
+  // Another family joined this room with their own character(s) —
+  // connected screens re-fetch the party list rather than trying to merge
+  // a partial update in over the wire.
+  | { type: "party_changed" };
 
 /** Structural, not the full `ws` class — so tests can pass plain mock
  * objects instead of standing up a real WebSocket. */

@@ -35,12 +35,20 @@ export default async function PlayHome() {
         </div>
       </div>
 
-      <Link
-        href="/play/campaigns/new"
-        className="w-fit rounded-full bg-zinc-50 px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
-      >
-        Start a new adventure
-      </Link>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/play/campaigns/new"
+          className="w-fit rounded-full bg-zinc-50 px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
+        >
+          Start a new adventure
+        </Link>
+        <Link
+          href="/play/join"
+          className="w-fit rounded-full border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-50 hover:bg-zinc-900"
+        >
+          Join with a room code
+        </Link>
+      </div>
 
       {campaigns.length > 0 && (
         <div className="flex flex-col gap-2">
