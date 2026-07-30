@@ -62,6 +62,40 @@ h1 {
   letter-spacing: 0.02em;
 }
 
+/* Every page's own root wrapper already uses Tailwind's bg-zinc-950 utility
+   for its full-viewport background — targeting that same class here (in
+   unlayered CSS, so it always wins over Tailwind's @layer utilities
+   without needing !important) adds a deckled-paper feel everywhere with no
+   per-page edits: a fine, mottled fiber grain across the whole surface,
+   plus a rough, irregular darkened fringe right at the true edges (an old
+   book page's deckled/torn boundary, not a smooth vignette) via an SVG
+   mask whose alpha is itself run through feTurbulence displacement. */
+.bg-zinc-950 {
+  position: relative;
+  background-image: url("/textures/paper-grain.svg");
+  background-size: 220px 220px;
+  background-repeat: repeat;
+  /* Base is very dark (near-black), so "overlay"/"soft-light" barely move
+     it — plain alpha compositing (the default "normal" mode) against the
+     grain SVG's own warm, fairly bright fleck color is what actually reads
+     as visible fiber against a dark page. */
+  background-blend-mode: normal;
+}
+
+.bg-zinc-950::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: rgba(4, 2, 1, 0.8);
+  -webkit-mask-image: url("/textures/deckle-fringe.svg");
+  mask-image: url("/textures/deckle-fringe.svg");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
 /* A warm "the story continues" moment while the next beat generates —
    deliberately not a spinner. The previous illustration stays on screen
    and gently breathes underneath a small pulsing lantern-glow dot next to
@@ -103,6 +137,89 @@ h1 {
     opacity: 0.85;
     filter: brightness(0.9);
   }
+}
+
+/* ============================================================
+   Home screen: vintage leather book cover with a brass faceplate,
+   the kind of ornamented metal plate you'd see set into an old bible
+   or a museum display case. Scoped to this one page — every other
+   page is an interior "page" (the deckled-paper treatment above);
+   the home screen is the book's own cover, so it gets its own
+   leather/metal materials instead.
+   ============================================================ */
+
+.book-cover {
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 38%, rgba(120, 70, 30, 0.35), transparent 70%),
+    radial-gradient(ellipse 140% 90% at 50% 100%, rgba(0, 0, 0, 0.55), transparent 60%),
+    radial-gradient(ellipse 140% 90% at 50% 0%, rgba(0, 0, 0, 0.5), transparent 60%),
+    linear-gradient(160deg, #3a1a10 0%, #2b120a 45%, #200d07 100%);
+}
+
+.book-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/textures/leather-grain.svg");
+  background-size: 260px 260px;
+  background-repeat: repeat;
+}
+
+/* The brass/bronze plate itself — a cast-metal panel bolted to the
+   leather, not a flat card: an outer drop shadow lifts it off the
+   cover, an inset highlight/shadow pair bevels its own edge, and a
+   thin engraved inner line echoes the etched borders on real
+   book-plates. */
+.brass-plate {
+  position: relative;
+  background: linear-gradient(145deg, #f0d59a 0%, #d6ab5f 20%, #9c7031 48%, #7a5220 68%, #b98d4c 100%);
+  border: 2px solid #3d2a10;
+  box-shadow:
+    0 24px 50px rgba(0, 0, 0, 0.6),
+    0 2px 0 rgba(255, 244, 214, 0.15),
+    inset 0 2px 0 rgba(255, 244, 214, 0.55),
+    inset 0 -4px 8px rgba(35, 18, 5, 0.65),
+    inset 0 0 0 7px rgba(66, 42, 16, 0.4);
+}
+
+.brass-plate::after {
+  content: "";
+  position: absolute;
+  inset: 15px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 244, 214, 0.4);
+  box-shadow: inset 0 1px 3px rgba(20, 10, 2, 0.5);
+}
+
+.plate-rivet {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff6df 0%, #e0bb73 30%, #8a6023 72%, #3d2a10 100%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.65),
+    inset 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Engraved-metal title lettering: a metallic gradient fill plus a
+   light-above/dark-below shadow pair, so the letterforms read as
+   raised relief rather than flat printed text. */
+.plate-title {
+  background: linear-gradient(180deg, #fff8e6 0%, #f0d59a 30%, #b9853f 62%, #7a5220 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    -1px -1px 0 rgba(255, 250, 230, 0.3),
+    1px 2px 2px rgba(20, 10, 2, 0.7);
+}
+
+.corner-guard {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
 }
 
 /* A single, high-contrast focus indicator for every interactive element,

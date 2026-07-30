@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260">
+  <filter id="hide" x="0%" y="0%" width="100%" height="100%">
+    <feTurbulence type="turbulence" baseFrequency="0.045" numOctaves="4" seed="21" stitchTiles="stitch" result="pebble"/>
+    <feColorMatrix in="pebble" type="matrix"
+      values="0 0 0 0 0.08
+              0 0 0 0 0.02
+              0 0 0 0 0.01
+              0 0 0 0.55 0"/>
+  </filter>
+  <rect width="260" height="260" filter="url(#hide)"/>
+</svg>
