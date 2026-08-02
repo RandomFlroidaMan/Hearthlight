@@ -1,7 +1,7 @@
 import { db } from "@/server/db";
 import { openai } from "@/server/openaiClient";
 import { modelConfig } from "@/server/config/models";
-import { buildImagePrompt, QUALITY, SIZES } from "./artDirection";
+import { buildImagePrompt, PORTRAIT_QUALITY, SIZES } from "./artDirection";
 import { getCachedImage, hashCacheKey, saveImage } from "./imageStore";
 import { logImageSpend } from "./spendLog";
 import type { Character } from "@/generated/prisma/client";
@@ -36,7 +36,7 @@ export async function generateCharacterPortrait(characterId: string): Promise<st
       model: modelConfig.image.model,
       prompt,
       size: SIZES.portrait,
-      quality: QUALITY,
+      quality: PORTRAIT_QUALITY,
       output_format: "png",
     });
 

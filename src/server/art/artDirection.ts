@@ -25,7 +25,15 @@ export const SIZES = {
   portrait: "1024x1024",
 } as const;
 
-export const QUALITY = "high" as const;
+/** Character portraits are generated once at creation time and then reused
+ * as a reference image for every future scene, so it's worth spending the
+ * extra generation time on a better-quality anchor. Scene art regenerates
+ * on every single beat and directly gates how long a family waits to see
+ * the next part of the story — "high" was measurably slower there (often
+ * 2x+) for a difference that barely reads once the scene is composited
+ * with the rest of the illustration and shown on a TV/phone screen. */
+export const PORTRAIT_QUALITY = "high" as const;
+export const SCENE_QUALITY = "medium" as const;
 
 /** Preset biomes from the brief. A WorldSetting with one of these keys gets
  * this palette folded in; a fully custom setting relies on its own

@@ -1,7 +1,7 @@
 import { db } from "@/server/db";
 import { openai } from "@/server/openaiClient";
 import { modelConfig } from "@/server/config/models";
-import { buildImagePrompt, QUALITY, SIZES } from "./artDirection";
+import { buildImagePrompt, SCENE_QUALITY, SIZES } from "./artDirection";
 import { getCachedImage, hashCacheKey, mimeTypeForFilename, readImageBytes, saveImage } from "./imageStore";
 import { logImageSpend } from "./spendLog";
 import { toStringArray } from "@/lib/json";
@@ -32,7 +32,7 @@ async function generateOnce(params: {
           image: referenceImages,
           prompt: params.prompt,
           size: SIZES.scene,
-          quality: QUALITY,
+          quality: SCENE_QUALITY,
           // input_fidelity is gpt-image-1/1.5 only; gpt-image-2 rejects it
           // with a 400 (confirmed live, not assumed from the SDK's docstring,
           // which reads ambiguously on this point).
@@ -42,7 +42,7 @@ async function generateOnce(params: {
           model: modelConfig.image.model,
           prompt: params.prompt,
           size: SIZES.scene,
-          quality: QUALITY,
+          quality: SCENE_QUALITY,
           output_format: "png",
         });
 

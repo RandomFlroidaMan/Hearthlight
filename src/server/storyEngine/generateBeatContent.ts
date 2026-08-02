@@ -217,6 +217,14 @@ async function callModel(ctx: BeatContext): Promise<Beat> {
       { role: "user", content: buildUserPrompt(ctx) },
     ],
     text: { format: zodTextFormat(beatSchema, "story_beat") },
+    // Writing 2-4 kid-friendly sentences and 2-3 choices from a heavily
+    // scaffolded prompt doesn't need heavy multi-step reasoning — left
+    // unset this defaults to a much slower effort tier, and reasoning time
+    // was the single biggest contributor to "over a minute to load a
+    // story." Structured Outputs still enforces the schema regardless of
+    // effort, so this doesn't risk malformed output, just less internal
+    // deliberation before writing.
+    reasoning: { effort: "low" },
   });
 
   return beatSchema.parse(JSON.parse(response.output_text));
