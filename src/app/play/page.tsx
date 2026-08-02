@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { getCurrentFamily } from "@/server/auth/session";
 import { LogoutButton } from "@/components/LogoutButton";
+import { DeleteCampaignButton } from "@/components/DeleteCampaignButton";
 import { publicImageUrl } from "@/server/art/imageStore";
 
 export const dynamic = "force-dynamic";
@@ -70,16 +71,18 @@ export default async function PlayHome() {
         <section className="flex flex-col gap-2">
           <p className="text-sm text-zinc-400">Continue an adventure in progress</p>
           {activeCampaigns.map((c) => (
-            <Link
+            <div
               key={c.id}
-              href={`/play/campaigns/${c.id}`}
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 hover:bg-zinc-800"
+              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 hover:bg-zinc-800"
             >
-              <span className="font-medium">
-                {c.characters.map((link) => link.character.displayName ?? link.character.name).join(" & ")}
-              </span>
-              <span className="text-zinc-500"> in {c.worldSetting.name}</span>
-            </Link>
+              <Link href={`/play/campaigns/${c.id}`} className="flex-1">
+                <span className="font-medium">
+                  {c.characters.map((link) => link.character.displayName ?? link.character.name).join(" & ")}
+                </span>
+                <span className="text-zinc-500"> in {c.worldSetting.name}</span>
+              </Link>
+              <DeleteCampaignButton campaignId={c.id} label="this adventure" />
+            </div>
           ))}
         </section>
       )}
@@ -130,17 +133,19 @@ export default async function PlayHome() {
         <section className="flex flex-col gap-2">
           <p className="text-sm text-zinc-400">Past adventures</p>
           {endedCampaigns.map((c) => (
-            <Link
+            <div
               key={c.id}
-              href={`/play/campaigns/${c.id}`}
-              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-4 py-3 hover:bg-zinc-800"
+              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-4 py-3 hover:bg-zinc-800"
             >
-              <span className="font-medium text-zinc-300">
-                {c.characters.map((link) => link.character.displayName ?? link.character.name).join(" & ")}
-              </span>
-              <span className="text-zinc-500"> in {c.worldSetting.name}</span>
-              <span className="ml-2 text-xs text-zinc-600">— finished</span>
-            </Link>
+              <Link href={`/play/campaigns/${c.id}`} className="flex-1">
+                <span className="font-medium text-zinc-300">
+                  {c.characters.map((link) => link.character.displayName ?? link.character.name).join(" & ")}
+                </span>
+                <span className="text-zinc-500"> in {c.worldSetting.name}</span>
+                <span className="ml-2 text-xs text-zinc-600">— finished</span>
+              </Link>
+              <DeleteCampaignButton campaignId={c.id} label="this adventure" />
+            </div>
           ))}
         </section>
       )}

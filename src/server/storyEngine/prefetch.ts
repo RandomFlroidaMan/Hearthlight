@@ -1,4 +1,4 @@
-import { generateBeatContent, type BeatContext } from "./generateBeatContent";
+import { generateBeatText, generateBeatMedia, type BeatContext } from "./generateBeatContent";
 import { planNextAct, type Act } from "./actPlanner";
 import { KEEP_RECENT_SCENES } from "./digest";
 import { setPrefetch, clearPrefetchForScene } from "./prefetchCache";
@@ -85,15 +85,28 @@ export async function triggerPrefetch(params: {
         forceEnding: false,
       };
 
-      const promise = generateBeatContent(ctx, campaign.id).catch((err) => {
+      const textPromise = generateBeatText(ctx).catch((err) => {
         console.error(
-          `Prefetch failed for scene ${scene.id} choice ${choiceIndex} (succeeded=${succeeded}):`,
+          `Prefetch (text) failed for scene ${scene.id} choice ${choiceIndex} (succeeded=${succeeded}):`,
           err,
         );
         return null;
       });
 
-      setPrefetch(scene.id, choiceIndex, succeeded, characterIds, promise);
+      const mediaPromise = textPromise.then((beat) => {
+        if (!beat) return null;
+        return generateBeatMedia(beat, { characters, worldSetting: campaign.worldSetting }, campaign.id).catch(
+          (err) => {
+            console.error(
+              `Prefetch (media) failed for scene ${scene.id} choice ${choiceIndex} (succeeded=${succeeded}):`,
+              err,
+            );
+            return null;
+          },
+        );
+      });
+
+      setPrefetch(scene.id, choiceIndex, succeeded, characterIds, { textPromise, mediaPromise });
     }
   });
 }

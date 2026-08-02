@@ -188,6 +188,13 @@ export function CampaignPlayView({
     campaignId,
     roomCode,
     onScene: applySceneUpdate,
+    // The current scene's art finished after its prose/choices already
+    // showed up — only patch if it's still the scene on screen (the party
+    // may have already moved on by the time this arrives). This screen
+    // doesn't play narration, so only imagePath matters here.
+    onSceneMedia: (update) => {
+      setScene((prev) => (prev.id === update.sceneId ? { ...prev, imagePath: update.imagePath } : prev));
+    },
     onGenerationFailed: (message) => {
       setBusy(false);
       setError(message);
@@ -395,7 +402,7 @@ export function CampaignPlayView({
         )}
       </div>
 
-      {scene.imagePath && (
+      {scene.imagePath ? (
         <Image
           src={publicImageUrl(scene.imagePath)}
           alt="Current scene"
@@ -404,6 +411,16 @@ export function CampaignPlayView({
           priority
           className={`rounded-md object-cover ${busy || imageBusy ? "image-breathe" : ""}`}
         />
+      ) : (
+        // The beat's prose/choices are already here (text arrives before
+        // art — see completeBeatAdvance) — this placeholder just holds the
+        // spot until the "scene_media" update patches in the real picture.
+        <div
+          className="image-breathe flex aspect-video w-full max-w-[768px] items-center justify-center rounded-md border border-dashed border-zinc-700 bg-zinc-900 text-sm text-zinc-500"
+          aria-hidden="true"
+        >
+          🎨 drawing this scene&hellip;
+        </div>
       )}
 
       {showDmTools && isOwner && (

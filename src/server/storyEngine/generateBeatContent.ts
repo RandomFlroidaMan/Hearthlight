@@ -248,12 +248,30 @@ async function generateValidatedBeat(ctx: BeatContext): Promise<Beat> {
   return FALLBACK_BEATS[ctx.act];
 }
 
-/** The full content pipeline for one beat: validated text, then art and
- * narration in parallel (independent of each other, so this halves the
- * added latency versus running them sequentially). */
-export async function generateBeatContent(ctx: BeatContext, campaignId: string): Promise<BeatContent> {
-  const beat = await generateValidatedBeat(ctx);
+export interface BeatMedia {
+  imageFilename: string;
+  narrationFilename: string | null;
+}
 
+/** The text half of a beat — the LLM call and content-policy validation.
+ * Split out from art/narration so a caller can show the prose and choices
+ * the moment they're ready instead of waiting on the slower art call too
+ * (art generation is the dominant cost in "how long until the next beat
+ * shows up," easily 10-20+ seconds even at medium quality — there's no
+ * reason a family should stare at a blank screen for that on top of the
+ * few seconds text takes). */
+export async function generateBeatText(ctx: BeatContext): Promise<Beat> {
+  return generateValidatedBeat(ctx);
+}
+
+/** The art+narration half, run once the beat's text (and therefore its
+ * image prompt and prose) is known. Independent of each other, so this
+ * halves the added latency versus running them sequentially. */
+export async function generateBeatMedia(
+  beat: Beat,
+  ctx: { characters: Character[]; worldSetting: WorldSetting },
+  campaignId: string,
+): Promise<BeatMedia> {
   const [{ filename: imageFilename }, narrationFilename] = await Promise.all([
     generateSceneImage({
       characters: ctx.characters,
@@ -264,5 +282,14 @@ export async function generateBeatContent(ctx: BeatContext, campaignId: string):
     generateNarration({ prose: beat.prose, campaignId }),
   ]);
 
-  return { beat, imageFilename, narrationFilename };
+  return { imageFilename, narrationFilename };
+}
+
+/** The full content pipeline for one beat, text then media — a
+ * convenience for callers that don't need the progressive text-then-media
+ * reveal (see generateBeatText/generateBeatMedia for that). */
+export async function generateBeatContent(ctx: BeatContext, campaignId: string): Promise<BeatContent> {
+  const beat = await generateBeatText(ctx);
+  const media = await generateBeatMedia(beat, ctx, campaignId);
+  return { beat, ...media };
 }

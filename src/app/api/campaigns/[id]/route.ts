@@ -32,3 +32,34 @@ export async function GET(
 
   return Response.json({ campaign, scene: latestScene });
 }
+
+/** Owner-family-only, like the other "this is my story" actions — deleting
+ * someone else's campaign just because you're in its room isn't something
+ * a room-code guest should ever be able to do. Doesn't touch image/audio
+ * files on disk: those are content-hashed and may still be referenced by
+ * other scenes or a WorldSetting's lastSceneImage, so only the DB rows for
+ * this campaign are removed. */
+export async function DELETE(
+  _request: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireFamilyId();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await ctx.params;
+
+  const campaign = await db.campaign.findUnique({ where: { id } });
+  if (!campaign || campaign.familyId !== auth.familyId) {
+    return Response.json({ error: "campaign_not_found" }, { status: 404 });
+  }
+
+  await db.$transaction([
+    db.item.deleteMany({ where: { campaignId: id } }),
+    db.spendLog.deleteMany({ where: { campaignId: id } }),
+    db.scene.deleteMany({ where: { campaignId: id } }),
+    db.campaignCharacter.deleteMany({ where: { campaignId: id } }),
+    db.campaign.delete({ where: { id } }),
+  ]);
+
+  return new Response(null, { status: 204 });
+}

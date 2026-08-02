@@ -1,4 +1,5 @@
-import type { BeatContent } from "./generateBeatContent";
+import type { Beat } from "./beatSchema";
+import type { BeatMedia } from "./generateBeatContent";
 
 /**
  * In-memory cache of speculatively-generated beat content, keyed by which
@@ -7,8 +8,20 @@ import type { BeatContent } from "./generateBeatContent";
  * candidates for "the next scene" would collide on Scene's
  * @@unique([campaignId, order]), and a lost cache on server restart is a
  * harmless degrade (just slower once), not a correctness issue.
+ *
+ * Split into a text half and a media (art+narration) half — rather than
+ * one combined promise — so a consumer that hits this cache mid-flight
+ * (prefetch started, but hasn't finished) can still reveal the text the
+ * moment it resolves instead of waiting on the slower media half too.
+ * Neither promise ever rejects: a failure inside generateBeatText/
+ * generateBeatMedia resolves to null instead, so a failed prefetch always
+ * reads as a clean cache miss rather than an unhandled rejection sitting
+ * in the cache.
  */
-type CacheEntry = Promise<BeatContent | null>;
+export interface PrefetchEntry {
+  textPromise: Promise<Beat | null>;
+  mediaPromise: Promise<BeatMedia | null>;
+}
 
 /** Sorted so join order never affects the key — only *which* characters
  * are present matters. */
@@ -26,10 +39,10 @@ function keyFor(sceneId: string, choiceIndex: number, assumedSuccess: boolean, c
 }
 
 const globalForPrefetch = globalThis as unknown as {
-  beatPrefetchCache: Map<string, CacheEntry> | undefined;
+  beatPrefetchCache: Map<string, PrefetchEntry> | undefined;
 };
 
-const cache: Map<string, CacheEntry> = globalForPrefetch.beatPrefetchCache ?? new Map();
+const cache: Map<string, PrefetchEntry> = globalForPrefetch.beatPrefetchCache ?? new Map();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrefetch.beatPrefetchCache = cache;
@@ -40,7 +53,7 @@ export function setPrefetch(
   choiceIndex: number,
   assumedSuccess: boolean,
   characterIds: string[],
-  entry: CacheEntry,
+  entry: PrefetchEntry,
 ): void {
   cache.set(keyFor(sceneId, choiceIndex, assumedSuccess, characterIds), entry);
 }
@@ -50,7 +63,7 @@ export function getPrefetch(
   choiceIndex: number,
   assumedSuccess: boolean,
   characterIds: string[],
-): CacheEntry | undefined {
+): PrefetchEntry | undefined {
   return cache.get(keyFor(sceneId, choiceIndex, assumedSuccess, characterIds));
 }
 

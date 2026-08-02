@@ -8,6 +8,10 @@ import { WebSocket } from "ws";
  */
 export type SyncEvent =
   | { type: "scene"; scene: unknown; outcome?: unknown }
+  // Patches a scene's art/narration in once they're ready, after the
+  // "scene" event above already revealed its prose/choices — see the
+  // text-then-media split in generateBeat.ts's completeBeatAdvance.
+  | { type: "scene_media"; sceneId: string; imagePath: string | null; narrationPath: string | null }
   | { type: "generation_failed"; message: string }
   // Another family joined this room with their own character(s) —
   // connected screens re-fetch the party list rather than trying to merge

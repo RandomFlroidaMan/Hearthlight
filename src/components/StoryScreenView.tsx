@@ -85,6 +85,18 @@ export function StoryScreenView({
     roomCode,
     onScene: applySceneUpdate,
     onOutcome: (outcome) => playOutcomeSfx(outcome as BeatOutcome),
+    // The current scene's art/narration finished after its prose/choices
+    // already showed up — only patch if it's still the scene on screen
+    // (the party may have already moved on by the time this arrives).
+    // The narrationPath change re-triggers the playNarration effect below,
+    // switching from the browser-speech fallback to the real narration.
+    onSceneMedia: (update) => {
+      setScene((prev) =>
+        prev.id === update.sceneId
+          ? { ...prev, imagePath: update.imagePath, narrationPath: update.narrationPath }
+          : prev,
+      );
+    },
     onGenerationFailed: () => setLoading(false),
   });
 
@@ -191,7 +203,7 @@ export function StoryScreenView({
         </button>
       </div>
 
-      {scene.imagePath && (
+      {scene.imagePath ? (
         <div className="relative aspect-video w-full">
           <Image
             src={publicImageUrl(scene.imagePath)}
@@ -200,6 +212,16 @@ export function StoryScreenView({
             priority
             className={`object-cover ${loading ? "image-breathe" : ""}`}
           />
+        </div>
+      ) : (
+        // The beat's prose/choices are already here (text arrives before
+        // art) — this placeholder just holds the spot until "scene_media"
+        // patches in the real picture.
+        <div
+          className="image-breathe flex aspect-video w-full items-center justify-center bg-zinc-900 text-lg text-zinc-500"
+          aria-hidden="true"
+        >
+          🎨 drawing this scene&hellip;
         </div>
       )}
 

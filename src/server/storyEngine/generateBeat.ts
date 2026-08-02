@@ -1,8 +1,8 @@
 import { db } from "@/server/db";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { toStringArray } from "@/lib/json";
-import { generateBeatContent, type BeatContent } from "./generateBeatContent";
-import { type Choice } from "./beatSchema";
+import { generateBeatText, generateBeatMedia, type BeatMedia } from "./generateBeatContent";
+import { type Choice, type Beat } from "./beatSchema";
 import { planNextAct, type Act } from "./actPlanner";
 import { updateDigestIfNeeded, KEEP_RECENT_SCENES } from "./digest";
 import { getPrefetch } from "./prefetchCache";
@@ -223,15 +223,29 @@ export async function resolveChoiceOutcome(params: BeatAdvanceParams): Promise<B
  * effect). Safe to run fire-and-forget in the background; failures are
  * reported via a "generation_failed" broadcast rather than a thrown error
  * reaching an already-answered HTTP request.
+ *
+ * Text and media (art+narration) are resolved and saved in two steps, not
+ * one: the scene is created/updated and broadcast the moment its prose and
+ * choices are known, with imagePath/narrationPath still null, so a family
+ * can read and pick their next choice right away — art generation alone
+ * routinely takes 10-20+ seconds, which used to mean sitting on a blank
+ * screen for the *combined* text+art+narration time on every single beat,
+ * cache hit or not. A second, separate broadcast ("scene_media") patches
+ * in the art and narration once they're ready; screens keep the previous
+ * beat's art on display (with the existing breathing-loader treatment)
+ * until then, rather than showing nothing.
  */
 export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ scene: Scene; outcome: BeatOutcome }> {
   const { campaign, characters, matureCombatAllowed, act, chosenChoice, chosenChoiceSucceeded, chosenChoiceOutcomeHint, latestScene, priorScenes, scenes, params } = ctx;
 
   // A background prefetch (triggered when the current scene was created)
-  // may already have this exact choice+outcome ready — reuse it instead of
-  // generating fresh. Only applies to a real choice pick, never to
-  // regenerate/direction/forceEnding, which have no matching cache entry.
-  let content: BeatContent | null = null;
+  // may already have this exact choice+outcome ready, or at least started
+  // — reuse its promises instead of kicking off a duplicate generation.
+  // Only applies to a real choice pick, never to regenerate/direction/
+  // forceEnding, which have no matching cache entry.
+  let cachedMediaPromise: Promise<BeatMedia | null> | null = null;
+  let beat: Beat | null = null;
+
   if (
     latestScene &&
     params.choiceIndex !== undefined &&
@@ -246,47 +260,45 @@ export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ sc
       characters.map((c) => c.id),
     );
     if (cached) {
-      content = await cached;
+      beat = await cached.textPromise;
+      if (beat) cachedMediaPromise = cached.mediaPromise;
     }
   }
 
-  if (!content) {
+  const beatContext = {
+    characters,
+    readingAge: campaign.readingAge,
+    matureCombatAllowed,
+    worldSetting: campaign.worldSetting,
+    act,
+    digestSummary: campaign.digestSummary,
+    npcsMet: toStringArray(campaign.npcsMet),
+    recentScenes: priorScenes.slice(-KEEP_RECENT_SCENES),
+    chosenChoiceText: chosenChoice?.text,
+    chosenChoiceSucceeded,
+    chosenChoiceOutcomeHint,
+    direction: params.direction,
+    forceEnding: params.forceEnding ?? false,
+  };
+
+  if (!beat) {
     if (await isMonthlyCapExceeded()) {
       throw new MonthlyCapExceededError(
         "This month's spending cap has been reached — raise it in Preferences to keep generating.",
       );
     }
-    content = await generateBeatContent(
-      {
-        characters,
-        readingAge: campaign.readingAge,
-        matureCombatAllowed,
-        worldSetting: campaign.worldSetting,
-        act,
-        digestSummary: campaign.digestSummary,
-        npcsMet: toStringArray(campaign.npcsMet),
-        recentScenes: priorScenes.slice(-KEEP_RECENT_SCENES),
-        chosenChoiceText: chosenChoice?.text,
-        chosenChoiceSucceeded,
-        chosenChoiceOutcomeHint,
-        direction: params.direction,
-        forceEnding: params.forceEnding ?? false,
-      },
-      campaign.id,
-    );
+    beat = await generateBeatText(beatContext);
   }
-
-  const { beat, imageFilename, narrationFilename } = content;
 
   const sceneData = {
     act,
     prose: beat.prose,
-    imagePath: imageFilename,
+    imagePath: null,
     imagePrompt: beat.imagePrompt,
     dmNotes: beat.dmNotes,
     choices: beat.choices,
     ambientTrack: beat.ambientTrack,
-    narrationPath: narrationFilename,
+    narrationPath: null,
     choiceText: chosenChoice?.text,
     isEnding: beat.isEnding,
   };
@@ -328,7 +340,36 @@ export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ sc
     itemAwarded: beat.itemReward !== null,
   };
 
+  // The prose/choices are ready — every connected screen can show them and
+  // let the party read/decide immediately, art and narration still pending.
   transport.broadcast(campaign.roomCode, { type: "scene", scene, outcome });
+
+  // The story has already visibly advanced (the text broadcast above), so
+  // a media failure here must never surface as a "generation_failed"
+  // error for a beat the party can already read — it only ever means this
+  // one beat's art/narration comes up empty, same as generateNarration's
+  // own always-resolves-to-null failure mode.
+  let media: BeatMedia | null;
+  try {
+    media = cachedMediaPromise
+      ? await cachedMediaPromise
+      : await generateBeatMedia(beat, { characters, worldSetting: campaign.worldSetting }, campaign.id);
+  } catch (err) {
+    console.error(`Beat media generation failed for campaign ${campaign.id}, scene ${scene.id}:`, err);
+    media = null;
+  }
+
+  const finalScene = await db.scene.update({
+    where: { id: scene.id },
+    data: { imagePath: media?.imageFilename ?? null, narrationPath: media?.narrationFilename ?? null },
+  });
+
+  transport.broadcast(campaign.roomCode, {
+    type: "scene_media",
+    sceneId: finalScene.id,
+    imagePath: finalScene.imagePath,
+    narrationPath: finalScene.narrationPath,
+  });
 
   // Fire-and-forget: guesses what's next for *this* scene's own choices,
   // so the next hop is fast too. Never awaited — must not add latency to
@@ -337,11 +378,11 @@ export async function completeBeatAdvance(ctx: BeatAdvanceContext): Promise<{ sc
     campaign: { ...campaign, act, npcsMet: updatedNpcsMet },
     characters,
     matureCombatAllowed,
-    scene,
+    scene: finalScene,
     priorScenes: params.regenerate ? priorScenes : scenes,
   });
 
-  return { scene, outcome };
+  return { scene: finalScene, outcome };
 }
 
 /** Convenience wrapper for callers that don't need the fast/slow split —

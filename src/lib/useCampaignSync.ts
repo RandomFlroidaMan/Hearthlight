@@ -24,6 +24,11 @@ export function useCampaignSync<T>(params: {
    * effects. Absent on the initial-load/reconnect refetch, which only
    * ever has a scene, not a fresh outcome to react to. */
   onOutcome?: (outcome: unknown) => void;
+  /** A scene's art/narration arrived after its prose/choices already did
+   * (see the text-then-media split in generateBeat.ts) — patch just those
+   * two fields into whichever scene is currently shown, if it's the one
+   * this update is for. */
+  onSceneMedia?: (update: { sceneId: string; imagePath: string | null; narrationPath: string | null }) => void;
   /** A beat this screen (or another connected screen) tried to generate
    * failed outright — as opposed to a scene simply not having arrived
    * yet. */
@@ -39,6 +44,10 @@ export function useCampaignSync<T>(params: {
   const onOutcomeRef = useRef(params.onOutcome);
   useEffect(() => {
     onOutcomeRef.current = params.onOutcome;
+  });
+  const onSceneMediaRef = useRef(params.onSceneMedia);
+  useEffect(() => {
+    onSceneMediaRef.current = params.onSceneMedia;
   });
   const onGenerationFailedRef = useRef(params.onGenerationFailed);
   useEffect(() => {
@@ -86,6 +95,8 @@ export function useCampaignSync<T>(params: {
           if (data.type === "scene") {
             onSceneRef.current(data.scene);
             if (data.outcome) onOutcomeRef.current?.(data.outcome);
+          } else if (data.type === "scene_media") {
+            onSceneMediaRef.current?.(data);
           } else if (data.type === "generation_failed") {
             onGenerationFailedRef.current?.(data.message);
           } else if (data.type === "party_changed") {
