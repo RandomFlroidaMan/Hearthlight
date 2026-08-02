@@ -38,7 +38,7 @@ export async function saveImage(hash: string, bytes: Buffer): Promise<string> {
   return filename;
 }
 
-const EXTENSION_BY_MIME: Record<string, string> = {
+export const EXTENSION_BY_MIME: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",

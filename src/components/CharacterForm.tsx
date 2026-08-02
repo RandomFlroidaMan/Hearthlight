@@ -6,6 +6,7 @@ import { CLASSES, RACES } from "@/lib/dnd";
 import { SPECIES, RANKS, findClassInfo } from "@/lib/startrek";
 import { deriveSkills } from "@/lib/deriveSkills";
 import { readingAges, type CreateCharacterInput } from "@/lib/characterSchema";
+import { uploadPortraitPhoto } from "@/lib/uploadPortraitPhoto";
 
 type Universe = "fantasy" | "star-trek";
 
@@ -75,7 +76,19 @@ export function CharacterForm({
   const [state, setState] = useState<FormState>({ ...DEFAULT_STATE, ...initial });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const router = useRouter();
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setPhotoFile(file);
+    setPhotoPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }
 
   const classInfo = findClassInfo(state.className);
   const raceOptions = state.universe === "fantasy" ? RACES : SPECIES;
@@ -114,7 +127,7 @@ export function CharacterForm({
     setSubmitting(true);
     setError(null);
 
-    const payload: CreateCharacterInput = {
+    const payload: CreateCharacterInput & { skipAutoPortrait?: boolean } = {
       name: state.name,
       displayName: state.useKidName ? (classInfo?.kidName ?? null) : null,
       universe: state.universe,
@@ -135,6 +148,7 @@ export function CharacterForm({
       appearance: state.appearance || null,
       readingAge: state.readingAge,
       sourceSheet: sourceSheet ?? null,
+      skipAutoPortrait: Boolean(photoFile),
     };
 
     const res = await fetch("/api/characters", {
@@ -143,14 +157,27 @@ export function CharacterForm({
       body: JSON.stringify(payload),
     });
 
-    setSubmitting(false);
-
     if (!res.ok) {
+      setSubmitting(false);
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Something went wrong saving this character.");
       return;
     }
 
+    const { character } = await res.json();
+
+    if (photoFile) {
+      setStatusMessage("Creating a portrait from your photo… this can take up to about 30 seconds.");
+      const photoResult = await uploadPortraitPhoto(character.id, photoFile);
+      if (!photoResult.ok) {
+        // The character itself is saved either way — a failed photo just
+        // means it lands in the library without art yet, where "Upload a
+        // photo" can be tried again with a different picture.
+        console.error(`Photo portrait failed for new character ${character.id}:`, photoResult.message);
+      }
+    }
+
+    setSubmitting(false);
     router.push("/dm/characters");
     router.refresh();
   }
@@ -165,6 +192,30 @@ export function CharacterForm({
           onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
           className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2"
         />
+      </label>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-sm text-zinc-400">
+          Portrait photo (optional) — upload a picture of a kid or a pet and we&apos;ll turn it into
+          this character&apos;s illustrated portrait. Leave blank and we&apos;ll paint one from the
+          description below instead.
+        </span>
+        <div className="flex items-center gap-3">
+          {photoPreviewUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- a local blob: preview URL, not an optimizable remote/static asset
+            <img
+              src={photoPreviewUrl}
+              alt="Selected photo preview"
+              className="h-16 w-16 rounded-full object-cover"
+            />
+          )}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handlePhotoChange}
+            className="text-sm"
+          />
+        </div>
       </label>
 
       <div className="flex gap-2 text-sm">
@@ -350,6 +401,7 @@ export function CharacterForm({
         </div>
       </div>
 
+      {statusMessage && <p className="text-sm text-amber-400">{statusMessage}</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <button
@@ -357,7 +409,7 @@ export function CharacterForm({
         disabled={submitting}
         className="rounded-full bg-zinc-50 px-5 py-3 font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
       >
-        {submitting ? "Saving…" : "Save character"}
+        {submitting ? (statusMessage ?? "Saving…") : "Save character"}
       </button>
     </form>
   );
