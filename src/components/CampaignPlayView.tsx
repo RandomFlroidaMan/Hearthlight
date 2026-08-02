@@ -89,6 +89,13 @@ export function CampaignPlayView({
    * screen family mode, where nobody is "running" the game for anyone
    * else. */
   showDmTools = true,
+  /** Whether the logged-in family is the one that started this campaign —
+   * gates the "full editing power" tools (replace art, add a character,
+   * author a custom beat) that any room-code guest shouldn't get. */
+  isOwner = false,
+  /** The owning family's own characters not already in this party — the
+   * pool "add a character" can pick from. */
+  availableCharacters = [],
 }: {
   campaignId: string;
   roomCode: string;
@@ -97,6 +104,8 @@ export function CampaignPlayView({
   party: PartyMember[];
   dmFudgeEnabled: boolean;
   showDmTools?: boolean;
+  isOwner?: boolean;
+  availableCharacters?: { id: string; label: string }[];
 }) {
   const [scene, setScene] = useState(initialScene);
   const [busy, setBusy] = useState(false);
@@ -107,7 +116,47 @@ export function CampaignPlayView({
   const [pendingChoiceIndex, setPendingChoiceIndex] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, DraftRoll>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [addCharacterId, setAddCharacterId] = useState(availableCharacters[0]?.id ?? "");
+  const [addingCharacter, setAddingCharacter] = useState(false);
+  const [showCustomBeat, setShowCustomBeat] = useState(false);
+  const [customBeatBusy, setCustomBeatBusy] = useState(false);
+  const [customBeatError, setCustomBeatError] = useState<string | null>(null);
+  const [customProse, setCustomProse] = useState("");
+  const [customIsEnding, setCustomIsEnding] = useState(false);
+  const [customChoices, setCustomChoices] = useState<
+    Array<{ text: string; skill: "" | "might" | "magic" | "cunning" | "heart"; dc: string }>
+  >([
+    { text: "", skill: "", dc: "" },
+    { text: "", skill: "", dc: "" },
+    { text: "", skill: "", dc: "" },
+  ]);
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+  const [customImagePrompt, setCustomImagePrompt] = useState("");
   const router = useRouter();
+
+  function updateCustomChoice(index: number, patch: Partial<(typeof customChoices)[number]>) {
+    setCustomChoices((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  }
+
+  function handleCustomBeatSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const body = new FormData();
+    body.append("prose", customProse);
+    body.append("isEnding", String(customIsEnding));
+    customChoices.forEach((c, i) => {
+      if (!c.text.trim()) return;
+      body.append(`choice${i + 1}Text`, c.text);
+      if (c.skill) body.append(`choice${i + 1}Skill`, c.skill);
+      if (c.dc) body.append(`choice${i + 1}Dc`, c.dc);
+    });
+    if (customImageFile) {
+      body.append("image", customImageFile);
+    } else if (customImagePrompt.trim()) {
+      body.append("imagePrompt", customImagePrompt);
+    }
+    submitCustomBeat(body);
+  }
 
   /** Applies a new scene whether it came from this screen's own PATCH
    * response or a WebSocket broadcast — the *only* way a beat this screen
@@ -265,6 +314,72 @@ export function CampaignPlayView({
     postBeat({ choiceIndex: pendingChoiceIndex, fudge: outcome });
   }
 
+  async function patchImage(body: FormData) {
+    setImageBusy(true);
+    setError(null);
+    const res = await fetch(`/api/campaigns/${campaignId}/scenes/${scene.id}/image`, {
+      method: "PATCH",
+      body,
+    });
+    setImageBusy(false);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.message ?? "Couldn't update that image.");
+      return;
+    }
+    const json = await res.json();
+    applySceneUpdate(json.scene);
+  }
+
+  function redrawImage() {
+    patchImage(new FormData());
+  }
+
+  function uploadImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append("image", file);
+    patchImage(body);
+    e.target.value = "";
+  }
+
+  async function addCharacter() {
+    if (!addCharacterId) return;
+    setAddingCharacter(true);
+    setError(null);
+    const res = await fetch(`/api/campaigns/${campaignId}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ characterIds: [addCharacterId] }),
+    });
+    setAddingCharacter(false);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.message ?? "Couldn't add that character.");
+      return;
+    }
+    router.refresh();
+  }
+
+  async function submitCustomBeat(formData: FormData) {
+    setCustomBeatBusy(true);
+    setCustomBeatError(null);
+    const res = await fetch(`/api/campaigns/${campaignId}/beats/custom`, {
+      method: "POST",
+      body: formData,
+    });
+    setCustomBeatBusy(false);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setCustomBeatError(json.message ?? "Couldn't save that beat.");
+      return;
+    }
+    const json = await res.json();
+    applySceneUpdate(json.scene);
+    setShowCustomBeat(false);
+  }
+
   const pendingChoice = pendingChoiceIndex !== null ? scene.choices[pendingChoiceIndex] : null;
 
   return (
@@ -287,8 +402,31 @@ export function CampaignPlayView({
           width={768}
           height={432}
           priority
-          className={`rounded-md object-cover ${busy ? "image-breathe" : ""}`}
+          className={`rounded-md object-cover ${busy || imageBusy ? "image-breathe" : ""}`}
         />
+      )}
+
+      {showDmTools && isOwner && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            disabled={imageBusy || busy}
+            onClick={redrawImage}
+            className="rounded-full border border-zinc-700 px-3 py-1 text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {imageBusy ? "Redrawing…" : "🎨 Ask GPT to redraw this"}
+          </button>
+          <label className="cursor-pointer rounded-full border border-zinc-700 px-3 py-1 text-zinc-300 hover:bg-zinc-800">
+            Upload your own image
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={uploadImage}
+              disabled={imageBusy || busy}
+              className="hidden"
+            />
+          </label>
+        </div>
       )}
 
       {busy && (
@@ -492,6 +630,16 @@ export function CampaignPlayView({
             Force an ending
           </button>
         )}
+        {showDmTools && isOwner && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setShowCustomBeat((v) => !v)}
+            className="rounded-full border border-purple-700 px-4 py-2 text-sm text-purple-300 hover:bg-purple-950/30 disabled:opacity-50"
+          >
+            {showCustomBeat ? "Cancel custom beat" : "✍ Author a custom beat"}
+          </button>
+        )}
         <a
           href={`/api/campaigns/${campaignId}/keepsake`}
           download
@@ -523,6 +671,133 @@ export function CampaignPlayView({
           </button>
         </div>
       </div>
+
+      {showDmTools && isOwner && availableCharacters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-zinc-400">Bring in another of your characters:</span>
+          <select
+            value={addCharacterId}
+            onChange={(e) => setAddCharacterId(e.target.value)}
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1"
+          >
+            {availableCharacters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={addingCharacter}
+            onClick={addCharacter}
+            className="rounded-full border border-zinc-700 px-3 py-1 text-xs hover:bg-zinc-900 disabled:opacity-50"
+          >
+            {addingCharacter ? "Adding…" : "Add to the party"}
+          </button>
+        </div>
+      )}
+
+      {showDmTools && isOwner && showCustomBeat && (
+        <form
+          onSubmit={handleCustomBeatSubmit}
+          className="flex flex-col gap-3 rounded-md border border-purple-800 bg-purple-950/20 p-4"
+        >
+          <p className="text-sm text-purple-300">
+            Full power: write the next beat yourself instead of asking GPT for one.
+          </p>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-zinc-400">Prose</span>
+            <textarea
+              required
+              value={customProse}
+              onChange={(e) => setCustomProse(e.target.value)}
+              rows={3}
+              className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label className="flex items-center gap-2 text-xs text-zinc-400">
+            <input
+              type="checkbox"
+              checked={customIsEnding}
+              onChange={(e) => setCustomIsEnding(e.target.checked)}
+            />
+            This is the ending — no choices needed
+          </label>
+
+          {!customIsEnding && (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs text-zinc-400">Choices (first two required, third optional)</span>
+              {customChoices.map((c, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={c.text}
+                    onChange={(e) => updateCustomChoice(i, { text: e.target.value })}
+                    placeholder={`Choice ${i + 1}`}
+                    className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+                  />
+                  <select
+                    value={c.skill}
+                    onChange={(e) => updateCustomChoice(i, { skill: e.target.value as typeof c.skill })}
+                    aria-label={`Choice ${i + 1} skill`}
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs"
+                  >
+                    <option value="">No roll needed</option>
+                    <option value="might">Might</option>
+                    <option value="magic">Magic</option>
+                    <option value="cunning">Cunning</option>
+                    <option value="heart">Heart</option>
+                  </select>
+                  {c.skill && (
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={c.dc}
+                      onChange={(e) => updateCustomChoice(i, { dc: e.target.value })}
+                      placeholder="DC"
+                      aria-label={`Choice ${i + 1} difficulty`}
+                      className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-center text-sm"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-zinc-400">
+              Scene image (optional) — upload your own, describe one for GPT, or leave blank to keep the last art
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => setCustomImageFile(e.target.files?.[0] ?? null)}
+                className="text-xs"
+              />
+              {!customImageFile && (
+                <input
+                  value={customImagePrompt}
+                  onChange={(e) => setCustomImagePrompt(e.target.value)}
+                  placeholder="Or describe the scene for GPT to draw"
+                  className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+                />
+              )}
+            </div>
+          </div>
+
+          {customBeatError && <p className="text-sm text-red-400">{customBeatError}</p>}
+
+          <button
+            type="submit"
+            disabled={customBeatBusy}
+            className="w-fit rounded-full bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+          >
+            {customBeatBusy ? "Saving…" : "Save this beat"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

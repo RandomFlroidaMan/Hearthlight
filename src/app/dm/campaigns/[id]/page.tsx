@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
+import { getCurrentFamily } from "@/server/auth/session";
 import { CampaignPlayView } from "@/components/CampaignPlayView";
 import { FirstSceneWaiter } from "@/components/FirstSceneWaiter";
 import { deriveSkills } from "@/lib/deriveSkills";
@@ -67,6 +68,23 @@ export default async function CampaignPage({
   // row the schema already defines, defaulting false if it's never been created.
   const settings = await db.settings.findUnique({ where: { id: "default" } });
 
+  // "Full DM editing power" (replace scene art, author a custom beat) is
+  // owner-family-only — surfaced here only when the logged-in family is
+  // the one that actually started this campaign, though the real
+  // enforcement lives server-side in each route, not this UI check.
+  const family = await getCurrentFamily();
+  const isOwner = family?.id === campaign.familyId;
+  const partyCharacterIds = new Set(characters.map((c) => c.id));
+  const availableCharacters = isOwner
+    ? (
+        await db.character.findMany({
+          where: { familyId: campaign.familyId, id: { notIn: [...partyCharacterIds] } },
+          select: { id: true, name: true, displayName: true },
+          orderBy: { createdAt: "desc" },
+        })
+      ).map((c) => ({ id: c.id, label: c.displayName ?? c.name }))
+    : [];
+
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-950 p-8">
       <div className="flex items-center justify-between">
@@ -103,6 +121,8 @@ export default async function CampaignPage({
         }}
         party={party}
         dmFudgeEnabled={settings?.dmFudgeEnabled ?? false}
+        isOwner={isOwner}
+        availableCharacters={availableCharacters}
       />
     </div>
   );
