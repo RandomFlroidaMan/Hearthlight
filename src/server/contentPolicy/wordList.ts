@@ -1,0 +1,179 @@
+/**
+ * The hard constraints from the brief, as data. Word-boundary matches,
+ * case-insensitive — checked against every piece of text in a generated
+ * beat before it's ever shown.
+ *
+ * Judgment call: mild tension words ("scared", "nervous", "spooky") are
+ * NOT banned — some tension is normal in an adventure story. What's banned
+ * is anything that implies real harm, death, or being genuinely tormented,
+ * which is what "frightening at bedtime" actually means in practice.
+ */
+export const BANNED_WORDS = [
+  "kill",
+  "kills",
+  "killed",
+  "killing",
+  "die",
+  "died",
+  "dies",
+  "dying",
+  "dead",
+  "deadly",
+  "death",
+  "hurt",
+  "hurts",
+  "hurting",
+  "harm",
+  "harmed",
+  "harmful",
+  "blood",
+  "bloody",
+  "bloodied",
+  "wound",
+  "wounded",
+  "wounds",
+  "stab",
+  "stabbed",
+  "stabbing",
+  "slay",
+  "slain",
+  "slays",
+  "slaying",
+  "murder",
+  "murdered",
+  "cruel",
+  "cruelty",
+  "abandon",
+  "abandoned",
+  "abandonment",
+  "terrified",
+  "terrifying",
+  "nightmare",
+  "nightmares",
+  "injure",
+  "injured",
+  "injury",
+  "corpse",
+  "corpses",
+  "funeral",
+  "grave",
+  "graveyard",
+  "torture",
+  "tortured",
+];
+
+/** The subset of BANNED_WORDS that the age-gated mature-combat setting may
+ * exempt — purely the vocabulary of a monster being defeated permanently,
+ * with no graphic detail. Gore/distress words (blood, wound, stab, hurt,
+ * harm, cruelty, torture, corpse, etc.) stay banned even in mature mode;
+ * this setting is about the story being honest that combat has real
+ * stakes, not about depicting violence. */
+export const MATURE_COMBAT_WORDS = [
+  "kill",
+  "kills",
+  "killed",
+  "killing",
+  "die",
+  "died",
+  "dies",
+  "dying",
+  "dead",
+  "deadly",
+  "death",
+  "slay",
+  "slain",
+  "slays",
+  "slaying",
+];
+
+/** Guidance vocabulary fed into the generation prompt — not a strict
+ * allowlist filter (that would reject too many valid creative phrasings),
+ * but what the model is told to reach for. */
+export const APPROVED_OUTCOME_VOCABULARY = [
+  "defeated",
+  "out-smarted",
+  "outsmarted",
+  "out-run",
+  "outrun",
+  "out-sung",
+  "outsung",
+  "shooed away",
+  "sent home",
+  "chased off",
+  "routed",
+  "tucked in for a nap",
+  "befriended",
+  "calmed",
+  "cheered up",
+];
+
+/** Fantastical creatures conflict is allowed with. */
+export const APPROVED_MONSTERS = [
+  "goblin",
+  "goblins",
+  "troll",
+  "trolls",
+  "slime",
+  "slimes",
+  "imp",
+  "imps",
+  "dragon",
+  "dragons",
+  "ogre",
+  "ogres",
+  "wolf",
+  "wolves",
+  "spider",
+  "spiders",
+  "ghost",
+  "ghosts",
+  "ghoul",
+  "ghouls",
+  "sprite",
+  "sprites",
+  "pixie",
+  "pixies",
+  "kobold",
+  "kobolds",
+];
+
+/** Words that indicate a human/person — conflict must never target these.
+ * Only flagged in combination with CONFLICT_WORDS (see validator.ts), since
+ * these words alone are common in perfectly safe beats (a friendly
+ * villager, a wise old man). */
+export const HUMAN_WORDS = [
+  "bandit",
+  "bandits",
+  "soldier",
+  "soldiers",
+  "guard",
+  "guards",
+  "thief",
+  "thieves",
+  "warrior",
+  "warriors",
+  "person",
+  "people",
+  "man",
+  "woman",
+  "villager",
+  "villagers",
+  "human",
+  "humans",
+];
+
+export const CONFLICT_WORDS = [
+  "fight",
+  "fights",
+  "fought",
+  "fighting",
+  "attack",
+  "attacks",
+  "attacked",
+  "attacking",
+  "battle",
+  "battled",
+  "battling",
+  "duel",
+  "dueled",
+];

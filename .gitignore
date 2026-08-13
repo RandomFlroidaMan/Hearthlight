@@ -43,8 +43,18 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# local sqlite db + generated art cache
+# local sqlite db + generated art/narration cache
 /data/*.db
 /data/*.db-journal
 /data/images/*
 !/data/images/.gitkeep
+/data/audio/*
+!/data/audio/.gitkeep
+
+# user-supplied ambient/sfx audio (purchased downloads — not for the repo)
+/public/audio/ambient/*
+!/public/audio/ambient/.gitkeep
+!/public/audio/ambient/README.md
+/public/audio/sfx/*
+!/public/audio/sfx/.gitkeep
+!/public/audio/sfx/README.md
